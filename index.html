@@ -310,7 +310,10 @@
     <div class="fg"><label>Prix <span style="font-weight:500;text-transform:none">(modifiable)</span></label><div class="price-in"><span class="cur">CHF</span><input id="f-price" type="number" inputmode="decimal" step="0.05" placeholder="0.00"></div></div>
     <div class="fg"><label>Cycle</label>
       <div class="cyc"><button id="cyc-mois" class="on" onclick="setCyc('mois')">par mois</button><button id="cyc-an" onclick="setCyc('an')">par an</button><button id="cyc-perso" onclick="setCyc('perso')">perso</button></div>
-      <div id="nmWrap" style="display:none;align-items:center;gap:9px;margin-top:10px"><span style="font-size:13.5px;color:var(--muted);font-weight:600">payé tous les</span><input id="f-nmonths" type="number" min="2" max="60" step="1" value="6" style="width:74px;padding:10px;border:1.5px solid var(--line);border-radius:13px;background:var(--surface);color:var(--ink);text-align:center;font-weight:700;font-family:inherit;font-size:15px"><span style="font-size:13.5px;color:var(--muted);font-weight:600">mois</span></div>
+      <div id="nmWrap" style="display:none;flex-direction:column;gap:7px;margin-top:10px">
+        <div style="display:flex;align-items:center;gap:9px"><span style="font-size:13.5px;color:var(--muted);font-weight:600">pendant</span><input id="f-nmonths" type="number" min="2" max="60" step="1" value="3" style="width:74px;padding:10px;border:1.5px solid var(--line);border-radius:13px;background:var(--surface);color:var(--ink);text-align:center;font-weight:700;font-family:inherit;font-size:15px"><span style="font-size:13.5px;color:var(--muted);font-weight:600">mois</span></div>
+        <span style="font-size:12px;color:var(--faint);line-height:1.4">Paiement échelonné — ex : 200.- par mois <b>pendant 3 mois</b> (3×), puis terminé.</span>
+      </div>
     </div>
     <div class="fg2">
       <div class="fg"><label>Prochain paiement</label><input id="f-date" type="date"></div>
@@ -413,15 +416,22 @@ function iconInner(name){
 }
 function chf(n){ return 'CHF '+(Math.round(n*100)/100).toFixed(2); }
 function grp(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2019'); }
-function stepMonths(s){ return s.cycle==='an' ? 12 : (s.cycle==='perso' ? Math.max(1,(s.nm||1)) : 1); }
-function monthly(s){ return s.price/stepMonths(s); }
-function cycleTxt(s){ return s.cycle==='an' ? 'par an' : (s.cycle==='perso' ? ('tous les '+(s.nm||1)+' mois') : 'par mois'); }
+function monthly(s){ return s.cycle==='an' ? s.price/12 : s.price; }
+function persoEnd(s){ return monthsFromNow(s.start||s.date) + (s.nm||1); } // mois-depuis-maintenant de fin de l'échelonnement
+function persoActive(s){ return s.cycle!=='perso' || persoEnd(s) > 0; }     // false si échelonnement terminé
+function monthlyNow(s){ return persoActive(s) ? monthly(s) : 0; }           // ce qui compte dans le total mensuel actuel
+function cycleTxt(s){ return s.cycle==='an' ? 'par an' : (s.cycle==='perso' ? ('pendant '+(s.nm||1)+' mois'+(persoActive(s)?'':' · terminé')) : 'par mois'); }
 
 function nextDate(s){
-  var d=new Date(s.date+'T00:00:00'); if(isNaN(d)) return null;
   var t=new Date(); t.setHours(0,0,0,0);
-  var guard=0;
-  while(d<t && guard<400){ d.setMonth(d.getMonth()+stepMonths(s)); guard++; }
+  if(s.cycle==='perso'){ // échelonné : un paiement par mois, nm fois ; null si tout est passé
+    var d0=new Date((s.start||s.date)+'T00:00:00'); if(isNaN(d0)) return null;
+    for(var k=0;k<(s.nm||1);k++){ var dk=new Date(d0); dk.setMonth(d0.getMonth()+k); if(dk>=t) return dk; }
+    return null;
+  }
+  var d=new Date(s.date+'T00:00:00'); if(isNaN(d)) return null;
+  var guard=0, step=(s.cycle==='an'?12:1);
+  while(d<t && guard<400){ d.setMonth(d.getMonth()+step); guard++; }
   return d;
 }
 function daysUntil(d){ var t=new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
@@ -444,7 +454,7 @@ function syncThemeColor(){
 
 /* ===== Render ===== */
 function render(){
-  var totM=SUBS.reduce(function(a,s){return a+monthly(s);},0);
+  var totM=SUBS.reduce(function(a,s){return a+monthlyNow(s);},0);
   var ip=Math.floor(totM), dec=totM.toFixed(2).split('.')[1];
   document.getElementById('totM').innerHTML='CHF '+grp(ip)+'<small>.'+dec+'</small>';
   document.getElementById('totY').textContent='CHF '+grp(totM*12);
@@ -459,15 +469,15 @@ function render(){
   var uw=document.getElementById('upWrap'); uw.style.display=up.length?'block':'none';
   document.getElementById('up').innerHTML=up.map(function(o){
     var n=daysUntil(o.d), soon=n<=5;
-    return '<div class="upc"><div class="d1"><span class="ico" style="width:30px;height:30px;border-radius:9px;font-size:13px;background:'+o.s.color+'">'+iconInner(o.s.name)+'</span><span class="when'+(soon?' soon':'')+'">'+whenTxt(n)+'</span></div><div class="nm">'+esc(o.s.name)+'</div><div class="pr">'+chf(o.s.price)+(o.s.cycle==='an'?' /an':o.s.cycle==='perso'?' /'+(o.s.nm||1)+'m':' /mois')+'</div></div>';
+    return '<div class="upc"><div class="d1"><span class="ico" style="width:30px;height:30px;border-radius:9px;font-size:13px;background:'+o.s.color+'">'+iconInner(o.s.name)+'</span><span class="when'+(soon?' soon':'')+'">'+whenTxt(n)+'</span></div><div class="nm">'+esc(o.s.name)+'</div><div class="pr">'+chf(o.s.price)+(o.s.cycle==='an'?' /an':o.s.cycle==='perso'?' ·'+(o.s.nm||1)+'×':' /mois')+'</div></div>';
   }).join('');
 
   // liste (par prix mensuel décroissant)
-  var list=SUBS.slice().sort(function(a,b){return monthly(b)-monthly(a);});
+  var list=SUBS.slice().sort(function(a,b){return monthlyNow(b)-monthlyNow(a);});
   document.getElementById('list').innerHTML=list.map(function(s){
     return '<div class="row" onclick="openEdit(\''+s.id+'\')"><div class="ico" style="background:'+s.color+'">'+iconInner(s.name)+'</div>'
       +'<div class="info"><div class="nm">'+esc(s.name)+'</div><div class="meta">'+(s.plan?esc(s.plan)+' · ':'')+cycleTxt(s)+'</div></div>'
-      +'<div class="amt"><b>'+chf(s.price)+'</b><span>'+(s.cycle!=='mois'?'≈ '+chf(monthly(s))+'/mois':'/mois')+'</span></div></div>';
+      +'<div class="amt"><b>'+chf(s.price)+'</b><span>'+(s.cycle==='an'?'≈ '+chf(monthly(s))+'/mois':s.cycle==='perso'?(persoActive(s)?'/mois · '+(s.nm||1)+'×':'terminé'):'/mois')+'</span></div></div>';
   }).join('');
 }
 function esc(t){ return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -481,10 +491,12 @@ var calRef=null;
 function openCalendar(){ calRef=new Date(); calRef.setDate(1); renderCalendar(); open_('ovCal'); }
 function calMove(d){ calRef.setMonth(calRef.getMonth()+d); renderCalendar(); }
 function calDueDay(s,Y,M){
-  var d=new Date(s.date+'T00:00:00'); if(isNaN(d)) return null;
+  var anchor=(s.cycle==='perso')?(s.start||s.date):s.date;
+  var d=new Date(anchor+'T00:00:00'); if(isNaN(d)) return null;
   var dim=new Date(Y,M+1,0).getDate();
-  var step=stepMonths(s);
-  if(step>1){ var diff=(Y*12+M)-(d.getFullYear()*12+d.getMonth()); if(((diff%step)+step)%step!==0) return null; }
+  var absM=Y*12+M, anchorAbs=d.getFullYear()*12+d.getMonth();
+  if(s.cycle==='an'){ if(((absM-anchorAbs)%12+12)%12!==0) return null; }
+  else if(s.cycle==='perso'){ var k=absM-anchorAbs; if(k<0||k>=(s.nm||1)) return null; } // un paiement/mois, nm fois
   return Math.min(d.getDate(),dim);
 }
 function renderCalendar(){
@@ -542,7 +554,7 @@ function fillForm(){
   document.getElementById('f-price').value=draft.price;
   document.getElementById('f-date').value=draft._date||todayISO();
   document.getElementById('f-start').value=draft._start||todayISO();
-  document.getElementById('f-nmonths').value=draft._nm||6;
+  document.getElementById('f-nmonths').value=draft._nm||3;
   setCyc(draft.cycle);
   // plans
   var pw=document.getElementById('planWrap'), ps=document.getElementById('plans');
@@ -612,18 +624,21 @@ function renderChart(){
   var period=chartMonths, yrs=period/12;
   // PASSÉ factuel : abos actuels (fin = maintenant) + abos supprimés (journal HIST)
   var recs=[];
-  SUBS.forEach(function(s){ recs.push({m:monthly(s), st:Math.min(0,monthsFromNow(s.start)), en:0}); });
+  SUBS.forEach(function(s){ recs.push({m:monthly(s), st:Math.min(0,monthsFromNow(s.start)), en:(s.cycle==='perso'?Math.min(0,persoEnd(s)):0)}); });
   HIST.forEach(function(h){ recs.push({m:h.monthly, st:Math.min(0,monthsFromNow(h.start)), en:Math.min(0,monthsFromNow(h.end))}); });
-  var mChecked=SUBS.filter(function(s){ return !excluded[s.id]; }).reduce(function(a,s){ return a+monthly(s); },0);
+  var checked=SUBS.filter(function(s){ return !excluded[s.id]; });
+  var mNow=checked.reduce(function(a,s){ return a+monthlyNow(s); },0);
   var originM=0; recs.forEach(function(r){ if(r.st<originM) originM=r.st; }); originM=Math.floor(originM);
   function pastAt(m){ var v=0; recs.forEach(function(r){ var act=Math.min(m,r.en)-r.st; if(act>0) v+=r.m*act; }); return v; }
   var pastTotal=pastAt(0);
-  function valAt(m){ return m<=0 ? pastAt(m) : pastTotal+mChecked*m; }
+  // futur : chaque abo coché ajoute son taux/mois ; un échelonné s'arrête à sa fin (la courbe se replie)
+  function futAt(m){ var v=pastTotal; checked.forEach(function(s){ if(s.cycle==='perso'){ v+=monthly(s)*Math.min(m,Math.max(0,persoEnd(s))); } else { v+=monthly(s)*m; } }); return v; }
+  function valAt(m){ return m<=0 ? pastAt(m) : futAt(m); }
   var series=[]; for(var mm=originM;mm<=period;mm++) series.push([mm, valAt(mm)]);
   var endTotal=valAt(period), max=Math.max(endTotal,1);
   document.getElementById('chTotal').textContent='CHF '+grp(endTotal);
   document.getElementById('chPeriodTxt').textContent='d’ici '+yrs+' '+(yrs<=1?'an':'ans');
-  document.getElementById('chPer').innerHTML = pastTotal>0 ? 'déjà <b>CHF '+grp(pastTotal)+'</b> dépensé · puis '+chf(mChecked)+' / mois' : 'à <b>'+chf(mChecked)+' / mois</b> · coche/décoche pour voir l’impact';
+  document.getElementById('chPer').innerHTML = pastTotal>0 ? 'déjà <b>CHF '+grp(pastTotal)+'</b> dépensé · puis '+chf(mNow)+' / mois' : 'à <b>'+chf(mNow)+' / mois</b> · coche/décoche pour voir l’impact';
   var cLine=cssv('--chart-line')||'#5b54e8', cGrid=cssv('--chart-grid')||'#eef0f7', cAxis=cssv('--chart-axis')||'#9aa3b5', cArea=cssv('--chart-area')||'#6366f1', cDotS=cssv('--surface')||'#fff', cMut=cssv('--muted')||'#888';
   var W=340,H=180,pl=48,pr=14,pt=18,pb=26, x0=pl,x1=W-pr,y0=pt,y1=H-pb, span=period-originM;
   function X(m){ return x0+((m-originM)/span)*(x1-x0); }
