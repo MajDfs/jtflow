@@ -299,7 +299,7 @@
 <div id="viewChart" style="display:none">
   <div class="periods" id="periods"></div>
   <div class="ch-big"><span id="chTotal">CHF 0</span> <span id="chPeriodTxt" class="ch-sub"></span></div>
-  <div class="ch-per">à <b id="chPer">CHF 0 / mois</b> · coche/décoche pour voir l'impact</div>
+  <div class="ch-per"><span id="chPer">CHF 0 / mois</span></div>
   <div class="chartcard"><div id="svgWrap"></div><div id="chTip" class="chtip"></div></div>
   <div class="sec" style="margin-top:22px"><span>Inclure dans le calcul</span><span><button class="allnone" onclick="setAll(true)">tout</button><button class="allnone" onclick="setAll(false)">aucun</button></span></div>
   <div id="chSubs"></div>
@@ -710,34 +710,39 @@ function renderChart(){
   SUBS.forEach(function(s){ recs.push({m:monthly(s), st:Math.min(0,monthsFromNow(s.start)), en:(s.cycle==='perso'?Math.min(0,persoEnd(s)):0)}); });
   HIST.forEach(function(h){ recs.push({m:h.monthly, st:Math.min(0,monthsFromNow(h.start)), en:Math.min(0,monthsFromNow(h.end))}); });
   var checked=SUBS.filter(function(s){ return !excluded[s.id]; });
-  var mNow=checked.reduce(function(a,s){ return a+monthlyNow(s); },0);
+  var mAll=SUBS.reduce(function(a,s){ return a+monthlyNow(s); },0);
   var originM=0; recs.forEach(function(r){ if(r.st<originM) originM=r.st; }); originM=Math.floor(originM);
   function pastAt(m){ var v=0; recs.forEach(function(r){ var act=Math.min(m,r.en)-r.st; if(act>0) v+=r.m*act; }); return v; }
   var pastTotal=pastAt(0);
-  // futur : chaque abo coché ajoute son taux/mois ; un échelonné s'arrête à sa fin (la courbe se replie)
-  function futAt(m){ var v=pastTotal; checked.forEach(function(s){ if(s.cycle==='perso'){ v+=monthly(s)*Math.min(m,Math.max(0,persoEnd(s))); } else { v+=monthly(s)*m; } }); return v; }
-  function valAt(m){ return m<=0 ? pastAt(m) : futAt(m); }
-  var series=[]; for(var mm=originM;mm<=period;mm++) series.push([mm, valAt(mm)]);
-  var endTotal=valAt(period), max=Math.max(endTotal,1);
-  document.getElementById('chTotal').textContent='CHF '+grp(endTotal);
+  // 2 projections : BLEU = tout (actuel, fixe) · VERT = avec tes annulations (abos cochés). Le passé est commun (factuel).
+  function futOf(list,m){ var v=pastTotal; list.forEach(function(s){ if(s.cycle==='perso'){ v+=monthly(s)*Math.min(m,Math.max(0,persoEnd(s))); } else { v+=monthly(s)*m; } }); return v; }
+  function blueAt(m){ return m<=0 ? pastAt(m) : futOf(SUBS,m); }
+  function greenAt(m){ return m<=0 ? pastAt(m) : futOf(checked,m); }
+  var blueSeries=[], greenSeries=[];
+  for(var mm=originM;mm<=period;mm++){ blueSeries.push([mm,blueAt(mm)]); greenSeries.push([mm,greenAt(mm)]); }
+  var endAll=blueAt(period), endMod=greenAt(period), savings=endAll-endMod, hasGap=savings>0.5;
+  var max=Math.max(endAll,1), cGreen='#16c784';
+  document.getElementById('chTotal').textContent='CHF '+grp(endAll);
   document.getElementById('chPeriodTxt').textContent='d’ici '+yrs+' '+(yrs<=1?'an':'ans');
-  document.getElementById('chPer').innerHTML = pastTotal>0 ? 'déjà <b>CHF '+grp(pastTotal)+'</b> dépensé · puis '+chf(mNow)+' / mois' : 'à <b>'+chf(mNow)+' / mois</b> · coche/décoche pour voir l’impact';
+  document.getElementById('chPer').innerHTML = (pastTotal>0 ? 'déjà <b>CHF '+grp(pastTotal)+'</b> dépensé' : 'à <b>'+chf(mAll)+'/mois</b>') + ' · ' + (hasGap ? '<b style="color:'+cGreen+'">−CHF '+grp(savings)+'</b> économisé en '+yrs+(yrs<=1?' an':' ans') : 'décoche un abo → tes économies en <span style="color:'+cGreen+';font-weight:800">vert</span>');
   var cLine=cssv('--chart-line')||'#5b54e8', cGrid=cssv('--chart-grid')||'#eef0f7', cAxis=cssv('--chart-axis')||'#9aa3b5', cArea=cssv('--chart-area')||'#6366f1', cDotS=cssv('--surface')||'#fff', cMut=cssv('--muted')||'#888';
   var W=340,H=180,pl=48,pr=14,pt=18,pb=26, x0=pl,x1=W-pr,y0=pt,y1=H-pb, span=period-originM;
   function X(m){ return x0+((m-originM)/span)*(x1-x0); }
   function Y(v){ return y1-(v/max)*(y1-y0); }
-  var pastPts=series.filter(function(p){return p[0]<=0;}).map(function(p){return [X(p[0]),Y(p[1])];});
-  var futPts=series.filter(function(p){return p[0]>=0;}).map(function(p){return [X(p[0]),Y(p[1])];});
+  var pastPts=blueSeries.filter(function(p){return p[0]<=0;}).map(function(p){return [X(p[0]),Y(p[1])];});
+  var blueFut=blueSeries.filter(function(p){return p[0]>=0;}).map(function(p){return [X(p[0]),Y(p[1])];});
+  var greenFut=greenSeries.filter(function(p){return p[0]>=0;}).map(function(p){return [X(p[0]),Y(p[1])];});
   function pathOf(pp){ return pp.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' '); }
-  var nowX=X(0), end=futPts[futPts.length-1];
-  var futArea='M'+nowX.toFixed(1)+' '+y1+' '+futPts.map(function(p){return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ')+' L'+x1.toFixed(1)+' '+y1+' Z';
+  var nowX=X(0), blueEnd=blueFut[blueFut.length-1], greenEnd=greenFut[greenFut.length-1];
+  var futArea='M'+nowX.toFixed(1)+' '+y1+' '+greenFut.map(function(p){return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ')+' L'+x1.toFixed(1)+' '+y1+' Z';
+  var band = hasGap ? ('M'+blueFut[0][0].toFixed(1)+' '+blueFut[0][1].toFixed(1)+' '+blueFut.slice(1).map(function(p){return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ')+' '+greenFut.slice().reverse().map(function(p){return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ')+' Z') : '';
   var pastArea = pastPts.length>1 ? 'M'+x0.toFixed(1)+' '+y1+' '+pastPts.map(function(p){return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ')+' L'+nowX.toFixed(1)+' '+y1+' Z' : '';
   var grid='';
   [0,0.5,1].forEach(function(f){ var yy=y1-f*(y1-y0); grid+='<line x1="'+x0+'" y1="'+yy.toFixed(1)+'" x2="'+x1+'" y2="'+yy.toFixed(1)+'" stroke="'+cGrid+'"/><text x="'+(x0-8)+'" y="'+(yy+3).toFixed(1)+'" text-anchor="end" font-size="8.5" font-weight="600" fill="'+cAxis+'">'+grp(max*f)+'</text>'; });
   var nowMark = originM<0 ? '<line x1="'+nowX.toFixed(1)+'" y1="'+y0+'" x2="'+nowX.toFixed(1)+'" y2="'+y1+'" stroke="'+cAxis+'" stroke-width="1" stroke-dasharray="2 3" opacity="0.65"/><text x="'+nowX.toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="8" font-weight="700" fill="'+cAxis+'">auj.</text>' : '';
-  var svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+cArea+'" stop-opacity="0.34"/><stop offset="1" stop-color="'+cArea+'" stop-opacity="0.02"/></linearGradient></defs>'+grid+(pastArea?'<path d="'+pastArea+'" fill="'+cMut+'" fill-opacity="0.10"/>':'')+'<path d="'+futArea+'" fill="url(#ag)"/>'+(pastPts.length>1?'<path d="'+pathOf(pastPts)+'" fill="none" stroke="'+cMut+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.8"/>':'')+'<path d="'+pathOf(futPts)+'" fill="none" stroke="'+cLine+'" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>'+nowMark+'<circle cx="'+end[0].toFixed(1)+'" cy="'+end[1].toFixed(1)+'" r="5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2.5"/><line id="chCross" x1="0" y1="'+y0+'" x2="0" y2="'+y1+'" stroke="'+cLine+'" stroke-width="1.2" stroke-dasharray="3 3" opacity="0"/><circle id="chDot" r="4.5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2" opacity="0"/></svg>';
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+cArea+'" stop-opacity="0.34"/><stop offset="1" stop-color="'+cArea+'" stop-opacity="0.02"/></linearGradient></defs>'+grid+(pastArea?'<path d="'+pastArea+'" fill="'+cMut+'" fill-opacity="0.10"/>':'')+'<path d="'+futArea+'" fill="url(#ag)"/>'+(hasGap?'<path d="'+band+'" fill="'+cGreen+'" fill-opacity="0.16"/>':'')+(pastPts.length>1?'<path d="'+pathOf(pastPts)+'" fill="none" stroke="'+cMut+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.8"/>':'')+'<path d="'+pathOf(blueFut)+'" fill="none" stroke="'+cLine+'" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>'+(hasGap?'<path d="'+pathOf(greenFut)+'" fill="none" stroke="'+cGreen+'" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>':'')+nowMark+'<circle cx="'+blueEnd[0].toFixed(1)+'" cy="'+blueEnd[1].toFixed(1)+'" r="5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2.5"/>'+(hasGap?'<circle cx="'+greenEnd[0].toFixed(1)+'" cy="'+greenEnd[1].toFixed(1)+'" r="5" fill="'+cGreen+'" stroke="'+cDotS+'" stroke-width="2.5"/>':'')+'<line id="chCross" x1="0" y1="'+y0+'" x2="0" y2="'+y1+'" stroke="'+cAxis+'" stroke-width="1.2" stroke-dasharray="3 3" opacity="0"/><circle id="chDot" r="4.5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2" opacity="0"/><circle id="chDot2" r="4.5" fill="'+cGreen+'" stroke="'+cDotS+'" stroke-width="2" opacity="0"/></svg>';
   document.getElementById('svgWrap').innerHTML=svg;
-  chartState={originM:originM,span:span,x0:x0,x1:x1,y0:y0,y1:y1,max:max,W:W,H:H,series:series};
+  chartState={originM:originM,span:span,x0:x0,x1:x1,y0:y0,y1:y1,max:max,W:W,H:H,series:blueSeries,green:greenSeries,hasGap:hasGap};
   // cases à cocher
   document.getElementById('chSubs').innerHTML = SUBS.length ? SUBS.map(function(s){
     var on=!excluded[s.id];
@@ -747,7 +752,7 @@ function renderChart(){
 
 /* ===== interactivité graphique (souris + doigt) ===== */
 var chartState=null;
-function chartLeave(){ ['chCross','chDot','chTip'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.opacity=0; }); }
+function chartLeave(){ ['chCross','chDot','chDot2','chTip'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.opacity=0; }); }
 function chartMove(e){
   if(!chartState) return;
   var svg=document.querySelector('#svgWrap svg'); if(!svg) return;
@@ -759,14 +764,16 @@ function chartMove(e){
   var mi=Math.round(cs.originM+f*cs.span);
   var idx=mi-cs.originM; if(idx<0)idx=0; if(idx>=cs.series.length)idx=cs.series.length-1;
   var val=cs.series[idx][1];
-  var X=cs.x0+((mi-cs.originM)/cs.span)*(cs.x1-cs.x0), Y=cs.y1-(val/cs.max)*(cs.y1-cs.y0);
-  var ln=document.getElementById('chCross'),dt=document.getElementById('chDot'),tip=document.getElementById('chTip');
+  var gval=cs.green?cs.green[idx][1]:val;
+  var X=cs.x0+((mi-cs.originM)/cs.span)*(cs.x1-cs.x0), Y=cs.y1-(val/cs.max)*(cs.y1-cs.y0), Yg=cs.y1-(gval/cs.max)*(cs.y1-cs.y0);
+  var ln=document.getElementById('chCross'),dt=document.getElementById('chDot'),dt2=document.getElementById('chDot2'),tip=document.getElementById('chTip');
   if(ln){ ln.setAttribute('x1',X.toFixed(1)); ln.setAttribute('x2',X.toFixed(1)); ln.style.opacity='1'; }
   if(dt){ dt.setAttribute('cx',X.toFixed(1)); dt.setAttribute('cy',Y.toFixed(1)); dt.style.opacity='1'; }
+  if(dt2){ dt2.setAttribute('cx',X.toFixed(1)); dt2.setAttribute('cy',Yg.toFixed(1)); dt2.style.opacity=(cs.hasGap&&mi>0)?'1':'0'; }
   if(tip){
     var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+mi);
     var dtxt=mi===0?"aujourd'hui":d.toLocaleDateString('fr-CH',{month:'short',year:'2-digit'});
-    tip.innerHTML='<b>'+chf(val)+'</b><span>'+dtxt+'</span>';
+    tip.innerHTML='<b>'+chf(val)+'</b><span>'+dtxt+'</span>'+((cs.hasGap&&mi>0)?'<span style="color:#6ee7b7;font-weight:800;opacity:1">après : '+chf(gval)+'</span>':'');
     var card=document.querySelector('.chartcard'), cr=card.getBoundingClientRect();
     var lx=rect.left+(X/cs.W)*rect.width-cr.left; lx=Math.max(42,Math.min(cr.width-42,lx));
     tip.style.left=lx+'px'; tip.style.top=(rect.top+(Y/cs.H)*rect.height-cr.top)+'px'; tip.style.opacity='1';
