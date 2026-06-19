@@ -206,6 +206,7 @@
   .chk.on .box{background:var(--primary);border-color:var(--primary);color:#fff}
   /* logos services */
   .ico .lg{width:58%;height:58%;object-fit:contain;display:block;pointer-events:none}
+  .ico .lg2{width:80%;height:80%;object-fit:contain;display:block;pointer-events:none;background:#fff;border-radius:8px;padding:2px;box-sizing:border-box}
   /* tooltip graphique interactif */
   .chartcard{position:relative}
   .chtip{position:absolute;top:0;left:0;pointer-events:none;opacity:0;transform:translate(-50%,calc(-100% - 12px));background:#4f46e5;color:#fff;padding:6px 10px;border-radius:10px;white-space:nowrap;box-shadow:0 10px 22px -6px rgba(40,40,95,.6);transition:opacity .12s;z-index:5;text-align:center;line-height:1.2}
@@ -306,9 +307,10 @@
     <div class="sh-h"><div style="display:flex;align-items:center;gap:10px"><button class="bk" id="formBack" style="display:none" onclick="backToCatalog()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><h2 id="formTitle">Nouvel abonnement</h2></div><button class="x" onclick="close_('ovForm')">✕</button></div>
     <div class="fg"><label>Nom</label><input id="f-name" placeholder="ex: Spotify"></div>
     <div class="fg" id="planWrap" style="display:none"><label>Forfait</label><div class="plans" id="plans"></div></div>
-    <div class="fg2">
-      <div class="fg"><label>Prix <span style="font-weight:500;text-transform:none">(modifiable)</span></label><div class="price-in"><span class="cur">CHF</span><input id="f-price" type="number" inputmode="decimal" step="0.05" placeholder="0.00"></div></div>
-      <div class="fg"><label>Cycle</label><div class="cyc"><button id="cyc-mois" class="on" onclick="setCyc('mois')">par mois</button><button id="cyc-an" onclick="setCyc('an')">par an</button></div></div>
+    <div class="fg"><label>Prix <span style="font-weight:500;text-transform:none">(modifiable)</span></label><div class="price-in"><span class="cur">CHF</span><input id="f-price" type="number" inputmode="decimal" step="0.05" placeholder="0.00"></div></div>
+    <div class="fg"><label>Cycle</label>
+      <div class="cyc"><button id="cyc-mois" class="on" onclick="setCyc('mois')">par mois</button><button id="cyc-an" onclick="setCyc('an')">par an</button><button id="cyc-perso" onclick="setCyc('perso')">perso</button></div>
+      <div id="nmWrap" style="display:none;align-items:center;gap:9px;margin-top:10px"><span style="font-size:13.5px;color:var(--muted);font-weight:600">payé tous les</span><input id="f-nmonths" type="number" min="2" max="60" step="1" value="6" style="width:74px;padding:10px;border:1.5px solid var(--line);border-radius:13px;background:var(--surface);color:var(--ink);text-align:center;font-weight:700;font-family:inherit;font-size:15px"><span style="font-size:13.5px;color:var(--muted);font-weight:600">mois</span></div>
     </div>
     <div class="fg2">
       <div class="fg"><label>Prochain paiement</label><input id="f-date" type="date"></div>
@@ -349,6 +351,7 @@ var CATALOG=[
  {name:'Non Stop Gym',color:'#d81e2c',plans:[{l:'Abonnement',p:49.00}]},
  {name:'Salle de sport',color:'#0ea5e9',plans:[]},
  {name:'ChatGPT Plus',color:'#10A37F',plans:[{l:'Plus (≈ facturé $20)',p:18.00}]},
+ {name:'Claude',color:'#cc785c',plans:[{l:'Pro (≈ facturé $20)',p:18.00},{l:'Max 5×',p:90.00},{l:'Max 20×',p:180.00}]},
  {name:'Microsoft 365',color:'#D83B01',plans:[{l:'Personnel',p:7.00},{l:'Famille',p:10.00}]},
  {name:'Adobe Creative Cloud',color:'#FF0000',plans:[{l:'Photo',p:12.00},{l:'Toutes les apps',p:65.00}]},
  {name:'PlayStation Plus',color:'#0070D1',plans:[{l:'Essential',p:7.90},{l:'Extra',p:13.40},{l:'Premium',p:16.40}]},
@@ -391,27 +394,34 @@ function uid(){ return 's'+Math.random().toString(36).slice(2,9); }
 function initials(n){ return (n||'?').replace(/[^A-Za-zÀ-ÿ0-9]/g,' ').trim().slice(0,1).toUpperCase()||'?'; }
 /* logos de marque (Simple Icons CDN, en blanc sur le badge coloré). Slug absent ou 404 -> initiale en repli. */
 var ICONS={
- 'Spotify':'spotify','Netflix':'netflix','Disney+':'disneyplus','YouTube Premium':'youtube',
+ 'Spotify':'spotify','Netflix':'netflix','YouTube Premium':'youtube',
  'Apple Music':'applemusic','iCloud+':'icloud','Apple One':'apple','Apple TV+':'appletv',
- 'Amazon Prime':'primevideo','DAZN':'dazn','ChatGPT Plus':'openai','Microsoft 365':'microsoft365',
- 'Adobe Creative Cloud':'adobecreativecloud','PlayStation Plus':'playstation','Xbox Game Pass':'xbox',
- 'Nintendo Online':'nintendoswitch','Audible':'audible','Crunchyroll':'crunchyroll',
- 'NordVPN':'nordvpn','Notion':'notion'
+ 'DAZN':'dazn','Claude':'claude','PlayStation Plus':'playstation',
+ 'Audible':'audible','Crunchyroll':'crunchyroll','NordVPN':'nordvpn','Notion':'notion'
+};
+/* marques absentes/retirées de Simple Icons : vrai logo couleur (Clearbit, repli favicon Google) sur pastille blanche */
+var IMGS={
+ 'Disney+':'disneyplus.com','TPG':'tpg.ch','Non Stop Gym':'nonstopgym.ch','Activ Fitness':'activfitness.ch','Basefit':'basefit.ch',
+ 'ChatGPT Plus':'openai.com','Amazon Prime':'amazon.com','Microsoft 365':'microsoft.com','Adobe Creative Cloud':'adobe.com','Xbox Game Pass':'xbox.com','Nintendo Online':'nintendo.com'
 };
 function iconInner(name){
+  var dom=IMGS[name];
+  if(dom) return '<img class="lg2" src="https://logo.clearbit.com/'+dom+'?size=128" alt="" onerror="this.onerror=null;this.src=\'https://www.google.com/s2/favicons?domain='+dom+'&sz=128\'">';
   var slug=ICONS[name];
   if(!slug) return initials(name);
   return '<img class="lg" src="https://cdn.simpleicons.org/'+slug+'/white" alt="" onerror="this.parentNode.textContent=\''+initials(name)+'\'">';
 }
 function chf(n){ return 'CHF '+(Math.round(n*100)/100).toFixed(2); }
 function grp(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2019'); }
-function monthly(s){ return s.cycle==='an' ? s.price/12 : s.price; }
+function stepMonths(s){ return s.cycle==='an' ? 12 : (s.cycle==='perso' ? Math.max(1,(s.nm||1)) : 1); }
+function monthly(s){ return s.price/stepMonths(s); }
+function cycleTxt(s){ return s.cycle==='an' ? 'par an' : (s.cycle==='perso' ? ('tous les '+(s.nm||1)+' mois') : 'par mois'); }
 
 function nextDate(s){
   var d=new Date(s.date+'T00:00:00'); if(isNaN(d)) return null;
   var t=new Date(); t.setHours(0,0,0,0);
   var guard=0;
-  while(d<t && guard<400){ if(s.cycle==='an') d.setFullYear(d.getFullYear()+1); else d.setMonth(d.getMonth()+1); guard++; }
+  while(d<t && guard<400){ d.setMonth(d.getMonth()+stepMonths(s)); guard++; }
   return d;
 }
 function daysUntil(d){ var t=new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
@@ -449,15 +459,15 @@ function render(){
   var uw=document.getElementById('upWrap'); uw.style.display=up.length?'block':'none';
   document.getElementById('up').innerHTML=up.map(function(o){
     var n=daysUntil(o.d), soon=n<=5;
-    return '<div class="upc"><div class="d1"><span class="ico" style="width:30px;height:30px;border-radius:9px;font-size:13px;background:'+o.s.color+'">'+iconInner(o.s.name)+'</span><span class="when'+(soon?' soon':'')+'">'+whenTxt(n)+'</span></div><div class="nm">'+esc(o.s.name)+'</div><div class="pr">'+chf(o.s.price)+' / '+o.s.cycle+'</div></div>';
+    return '<div class="upc"><div class="d1"><span class="ico" style="width:30px;height:30px;border-radius:9px;font-size:13px;background:'+o.s.color+'">'+iconInner(o.s.name)+'</span><span class="when'+(soon?' soon':'')+'">'+whenTxt(n)+'</span></div><div class="nm">'+esc(o.s.name)+'</div><div class="pr">'+chf(o.s.price)+(o.s.cycle==='an'?' /an':o.s.cycle==='perso'?' /'+(o.s.nm||1)+'m':' /mois')+'</div></div>';
   }).join('');
 
   // liste (par prix mensuel décroissant)
   var list=SUBS.slice().sort(function(a,b){return monthly(b)-monthly(a);});
   document.getElementById('list').innerHTML=list.map(function(s){
     return '<div class="row" onclick="openEdit(\''+s.id+'\')"><div class="ico" style="background:'+s.color+'">'+iconInner(s.name)+'</div>'
-      +'<div class="info"><div class="nm">'+esc(s.name)+'</div><div class="meta">'+(s.plan?esc(s.plan)+' · ':'')+'par '+s.cycle+'</div></div>'
-      +'<div class="amt"><b>'+chf(s.price)+'</b><span>'+(s.cycle==='an'?'≈ '+chf(monthly(s))+'/mois':'/mois')+'</span></div></div>';
+      +'<div class="info"><div class="nm">'+esc(s.name)+'</div><div class="meta">'+(s.plan?esc(s.plan)+' · ':'')+cycleTxt(s)+'</div></div>'
+      +'<div class="amt"><b>'+chf(s.price)+'</b><span>'+(s.cycle!=='mois'?'≈ '+chf(monthly(s))+'/mois':'/mois')+'</span></div></div>';
   }).join('');
 }
 function esc(t){ return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -473,7 +483,8 @@ function calMove(d){ calRef.setMonth(calRef.getMonth()+d); renderCalendar(); }
 function calDueDay(s,Y,M){
   var d=new Date(s.date+'T00:00:00'); if(isNaN(d)) return null;
   var dim=new Date(Y,M+1,0).getDate();
-  if(s.cycle==='an'){ if(d.getMonth()!==M) return null; return Math.min(d.getDate(),dim); }
+  var step=stepMonths(s);
+  if(step>1){ var diff=(Y*12+M)-(d.getFullYear()*12+d.getMonth()); if(((diff%step)+step)%step!==0) return null; }
   return Math.min(d.getDate(),dim);
 }
 function renderCalendar(){
@@ -520,7 +531,7 @@ function openEdit(id){
   var s=SUBS.find(function(x){return x.id===id;}); if(!s) return;
   var c=CATALOG.find(function(x){return x.name===s.name;});
   draft={ name:s.name, color:s.color, plans:(c?c.plans:[]), plan:s.plan||'', price:s.price, cycle:s.cycle };
-  editId=id; draft._date=s.date; draft._start=s.start;
+  editId=id; draft._date=s.date; draft._start=s.start; draft._nm=s.nm;
   fillForm(); open_('ovForm');
 }
 function fillForm(){
@@ -531,6 +542,7 @@ function fillForm(){
   document.getElementById('f-price').value=draft.price;
   document.getElementById('f-date').value=draft._date||todayISO();
   document.getElementById('f-start').value=draft._start||todayISO();
+  document.getElementById('f-nmonths').value=draft._nm||6;
   setCyc(draft.cycle);
   // plans
   var pw=document.getElementById('planWrap'), ps=document.getElementById('plans');
@@ -550,6 +562,8 @@ function setCyc(c){
   draft.cycle=c;
   document.getElementById('cyc-mois').classList.toggle('on',c==='mois');
   document.getElementById('cyc-an').classList.toggle('on',c==='an');
+  document.getElementById('cyc-perso').classList.toggle('on',c==='perso');
+  document.getElementById('nmWrap').style.display = c==='perso' ? 'flex' : 'none';
 }
 function todayISO(){ var d=new Date(); return d.toISOString().slice(0,10); }
 
@@ -558,9 +572,10 @@ function saveSub(){
   var price=parseFloat(document.getElementById('f-price').value.replace(',','.'));
   var date=document.getElementById('f-date').value||todayISO();
   var start=document.getElementById('f-start').value||todayISO();
+  var nm=Math.max(2,Math.min(60,parseInt(document.getElementById('f-nmonths').value,10)||6));
   if(!name){ alert('Donne un nom à ton abonnement.'); return; }
   if(isNaN(price)||price<0){ alert('Mets un prix valide.'); return; }
-  var data={ name:name, color:draft.color||'#6366f1', plan:draft.plan||'', price:price, cycle:draft.cycle, date:date, start:start };
+  var data={ name:name, color:draft.color||'#6366f1', plan:draft.plan||'', price:price, cycle:draft.cycle, date:date, start:start, nm:nm };
   if(editId){ var s=SUBS.find(function(x){return x.id===editId;}); Object.assign(s,data); }
   else { data.id=uid(); SUBS.push(data); }
   save(); render(); if(view==='chart')renderChart(); close_('ovForm');
