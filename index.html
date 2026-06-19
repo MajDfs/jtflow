@@ -201,6 +201,13 @@
   .chk b{font-weight:800;font-size:13.5px;white-space:nowrap;letter-spacing:-.01em}.chk b small{font-weight:500;color:var(--muted);font-size:11px}
   .chk .box{flex:0 0 auto;width:24px;height:24px;border-radius:8px;border:2px solid var(--line-2);background:var(--surface);display:flex;align-items:center;justify-content:center;color:transparent;font-size:13px;font-weight:900;transition:.12s}
   .chk.on .box{background:var(--primary);border-color:var(--primary);color:#fff}
+  /* logos services */
+  .ico .lg{width:58%;height:58%;object-fit:contain;display:block;pointer-events:none}
+  /* tooltip graphique interactif */
+  .chartcard{position:relative}
+  .chtip{position:absolute;top:0;left:0;pointer-events:none;opacity:0;transform:translate(-50%,calc(-100% - 12px));background:#4f46e5;color:#fff;padding:6px 10px;border-radius:10px;white-space:nowrap;box-shadow:0 10px 22px -6px rgba(40,40,95,.6);transition:opacity .12s;z-index:5;text-align:center;line-height:1.2}
+  .chtip b{display:block;font-size:13.5px;font-weight:800;letter-spacing:-.02em}
+  .chtip span{font-size:10.5px;font-weight:600;opacity:.8}
 </style>
 </head>
 <body>
@@ -250,7 +257,7 @@
   <div class="periods" id="periods"></div>
   <div class="ch-big"><span id="chTotal">CHF 0</span> <span id="chPeriodTxt" class="ch-sub"></span></div>
   <div class="ch-per">à <b id="chPer">CHF 0 / mois</b> · coche/décoche pour voir l'impact</div>
-  <div class="chartcard"><div id="svgWrap"></div></div>
+  <div class="chartcard"><div id="svgWrap"></div><div id="chTip" class="chtip"></div></div>
   <div class="sec" style="margin-top:22px"><span>Inclure dans le calcul</span><span><button class="allnone" onclick="setAll(true)">tout</button><button class="allnone" onclick="setAll(false)">aucun</button></span></div>
   <div id="chSubs"></div>
 </div>
@@ -336,6 +343,20 @@ function load(){ try{return JSON.parse(localStorage.getItem('mesabos')||'[]');}c
 function save(){ if(location.hash==='#demo') return; localStorage.setItem('mesabos', JSON.stringify(SUBS)); }
 function uid(){ return 's'+Math.random().toString(36).slice(2,9); }
 function initials(n){ return (n||'?').replace(/[^A-Za-zÀ-ÿ0-9]/g,' ').trim().slice(0,1).toUpperCase()||'?'; }
+/* logos de marque (Simple Icons CDN, en blanc sur le badge coloré). Slug absent ou 404 -> initiale en repli. */
+var ICONS={
+ 'Spotify':'spotify','Netflix':'netflix','Disney+':'disneyplus','YouTube Premium':'youtube',
+ 'Apple Music':'applemusic','iCloud+':'icloud','Apple One':'apple','Apple TV+':'appletv',
+ 'Amazon Prime':'primevideo','DAZN':'dazn','ChatGPT Plus':'openai','Microsoft 365':'microsoft365',
+ 'Adobe Creative Cloud':'adobecreativecloud','PlayStation Plus':'playstation','Xbox Game Pass':'xbox',
+ 'Nintendo Online':'nintendoswitch','Audible':'audible','Crunchyroll':'crunchyroll',
+ 'NordVPN':'nordvpn','Notion':'notion'
+};
+function iconInner(name){
+  var slug=ICONS[name];
+  if(!slug) return initials(name);
+  return '<img class="lg" src="https://cdn.simpleicons.org/'+slug+'/white" alt="" onerror="this.parentNode.textContent=\''+initials(name)+'\'">';
+}
 function chf(n){ return 'CHF '+(Math.round(n*100)/100).toFixed(2); }
 function grp(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2019'); }
 function monthly(s){ return s.cycle==='an' ? s.price/12 : s.price; }
@@ -382,13 +403,13 @@ function render(){
   var uw=document.getElementById('upWrap'); uw.style.display=up.length?'block':'none';
   document.getElementById('up').innerHTML=up.map(function(o){
     var n=daysUntil(o.d), soon=n<=5;
-    return '<div class="upc"><div class="d1"><span class="ico" style="width:30px;height:30px;border-radius:9px;font-size:13px;background:'+o.s.color+'">'+initials(o.s.name)+'</span><span class="when'+(soon?' soon':'')+'">'+whenTxt(n)+'</span></div><div class="nm">'+esc(o.s.name)+'</div><div class="pr">'+chf(o.s.price)+' / '+o.s.cycle+'</div></div>';
+    return '<div class="upc"><div class="d1"><span class="ico" style="width:30px;height:30px;border-radius:9px;font-size:13px;background:'+o.s.color+'">'+iconInner(o.s.name)+'</span><span class="when'+(soon?' soon':'')+'">'+whenTxt(n)+'</span></div><div class="nm">'+esc(o.s.name)+'</div><div class="pr">'+chf(o.s.price)+' / '+o.s.cycle+'</div></div>';
   }).join('');
 
   // liste (par prix mensuel décroissant)
   var list=SUBS.slice().sort(function(a,b){return monthly(b)-monthly(a);});
   document.getElementById('list').innerHTML=list.map(function(s){
-    return '<div class="row" onclick="openEdit(\''+s.id+'\')"><div class="ico" style="background:'+s.color+'">'+initials(s.name)+'</div>'
+    return '<div class="row" onclick="openEdit(\''+s.id+'\')"><div class="ico" style="background:'+s.color+'">'+iconInner(s.name)+'</div>'
       +'<div class="info"><div class="nm">'+esc(s.name)+'</div><div class="meta">'+(s.plan?esc(s.plan)+' · ':'')+'par '+s.cycle+'</div></div>'
       +'<div class="amt"><b>'+chf(s.price)+'</b><span>'+(s.cycle==='an'?'≈ '+chf(monthly(s))+'/mois':'/mois')+'</span></div></div>';
   }).join('');
@@ -402,7 +423,7 @@ function renderCatalog(){
   var items=CATALOG.filter(function(c){return !q || c.name.toLowerCase().indexOf(q)>=0;});
   document.getElementById('catGrid').innerHTML=items.map(function(c,i){
     var idx=CATALOG.indexOf(c);
-    return '<button class="cat-it" onclick="pickService('+idx+')"><div class="ico" style="background:'+c.color+'">'+initials(c.name)+'</div><div class="cn">'+esc(c.name)+'</div></button>';
+    return '<button class="cat-it" onclick="pickService('+idx+')"><div class="ico" style="background:'+c.color+'">'+iconInner(c.name)+'</div><div class="cn">'+esc(c.name)+'</div></button>';
   }).join('');
 }
 
@@ -507,13 +528,41 @@ function renderChart(){
   var xlab='';
   for(var yr=1;yr<=yrs;yr++){ var xx=X(yr*12); xlab+='<line x1="'+xx.toFixed(1)+'" y1="'+y0+'" x2="'+xx.toFixed(1)+'" y2="'+y1+'" stroke="'+cGrid+'"/><text x="'+xx.toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="'+cAxis+'">'+yr+(yr>1?' ans':' an')+'</text>'; }
   var end=pts[pts.length-1];
-  document.getElementById('svgWrap').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" width="100%"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+cArea+'" stop-opacity="0.34"/><stop offset="1" stop-color="'+cArea+'" stop-opacity="0.02"/></linearGradient></defs>'+grid+xlab+'<path d="'+area+'" fill="url(#ag)"/><path d="'+line+'" fill="none" stroke="'+cLine+'" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+end[0].toFixed(1)+'" cy="'+end[1].toFixed(1)+'" r="5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2.5"/></svg>';
+  document.getElementById('svgWrap').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" width="100%"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+cArea+'" stop-opacity="0.34"/><stop offset="1" stop-color="'+cArea+'" stop-opacity="0.02"/></linearGradient></defs>'+grid+xlab+'<path d="'+area+'" fill="url(#ag)"/><path d="'+line+'" fill="none" stroke="'+cLine+'" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+end[0].toFixed(1)+'" cy="'+end[1].toFixed(1)+'" r="5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2.5"/><line id="chCross" x1="0" y1="'+y0+'" x2="0" y2="'+y1+'" stroke="'+cLine+'" stroke-width="1.2" stroke-dasharray="3 3" opacity="0"/><circle id="chDot" r="4.5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2" opacity="0"/></svg>';
+  chartState={mTot:mTot,months:months,x0:x0,x1:x1,y0:y0,y1:y1,max:max,W:W,H:H};
   // cases à cocher
   document.getElementById('chSubs').innerHTML = SUBS.length ? SUBS.map(function(s){
     var on=!excluded[s.id];
-    return '<label class="chk'+(on?' on':'')+'"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleExclude(\''+s.id+'\')"><span class="ico" style="width:32px;height:32px;border-radius:9px;font-size:14px;background:'+s.color+'">'+initials(s.name)+'</span><span class="cn">'+esc(s.name)+'</span><b>'+chf(monthly(s))+'<small> /mois</small></b><span class="box">✓</span></label>';
+    return '<label class="chk'+(on?' on':'')+'"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleExclude(\''+s.id+'\')"><span class="ico" style="width:32px;height:32px;border-radius:9px;font-size:14px;background:'+s.color+'">'+iconInner(s.name)+'</span><span class="cn">'+esc(s.name)+'</span><b>'+chf(monthly(s))+'<small> /mois</small></b><span class="box">✓</span></label>';
   }).join('') : '<div class="empty">Ajoute des abos pour voir l\'évolution 📈</div>';
 }
+
+/* ===== interactivité graphique (souris + doigt) ===== */
+var chartState=null;
+function chartLeave(){ ['chCross','chDot','chTip'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.opacity=0; }); }
+function chartMove(e){
+  if(!chartState) return;
+  var svg=document.querySelector('#svgWrap svg'); if(!svg) return;
+  if(e.type==='touchmove') e.preventDefault();
+  var t=e.touches&&e.touches[0], px=t?t.clientX:e.clientX;
+  var rect=svg.getBoundingClientRect(), cs=chartState;
+  var sx=(px-rect.left)/rect.width*cs.W;
+  var f=(sx-cs.x0)/(cs.x1-cs.x0); f=Math.max(0,Math.min(1,f));
+  var mi=Math.round(f*cs.months), val=cs.mTot*mi;
+  var X=cs.x0+(mi/cs.months)*(cs.x1-cs.x0), Y=cs.y1-(val/cs.max)*(cs.y1-cs.y0);
+  var ln=document.getElementById('chCross'),dt=document.getElementById('chDot'),tip=document.getElementById('chTip');
+  if(ln){ ln.setAttribute('x1',X.toFixed(1)); ln.setAttribute('x2',X.toFixed(1)); ln.style.opacity='1'; }
+  if(dt){ dt.setAttribute('cx',X.toFixed(1)); dt.setAttribute('cy',Y.toFixed(1)); dt.style.opacity='1'; }
+  if(tip){
+    var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+mi);
+    var dtxt=mi===0?'maintenant':(mi+' mois · '+d.toLocaleDateString('fr-CH',{month:'short',year:'2-digit'}));
+    tip.innerHTML='<b>'+chf(val)+'</b><span>'+dtxt+'</span>';
+    var card=document.querySelector('.chartcard'), cr=card.getBoundingClientRect();
+    var lx=rect.left+(X/cs.W)*rect.width-cr.left; lx=Math.max(42,Math.min(cr.width-42,lx));
+    tip.style.left=lx+'px'; tip.style.top=(rect.top+(Y/cs.H)*rect.height-cr.top)+'px'; tip.style.opacity='1';
+  }
+}
+(function(){ var sw=document.getElementById('svgWrap'); if(sw){ sw.addEventListener('mousemove',chartMove); sw.addEventListener('mouseleave',chartLeave); sw.addEventListener('touchstart',chartMove,{passive:false}); sw.addEventListener('touchmove',chartMove,{passive:false}); sw.addEventListener('touchend',chartLeave); } })();
 
 syncThemeColor();
 render();
