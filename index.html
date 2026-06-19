@@ -193,6 +193,19 @@
   .sortchips{display:flex;gap:8px;margin-bottom:14px}
   .sortchips .sc{flex:1;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:9px;font-size:13px;font-weight:700;color:var(--muted);transition:.12s;cursor:pointer}
   .sortchips .sc.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-ink)}
+  .sortchips .sc{padding:9px 4px;font-size:12.5px}
+  .due{font-weight:700;color:var(--muted);white-space:nowrap}
+  .due.soon{color:#f59e0b}
+  .cathd{display:flex;align-items:center;gap:8px;margin:18px 2px 9px;font-size:12.5px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.04em}
+  .cathd .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .cathd .tot{margin-left:auto;color:var(--muted);font-weight:700;text-transform:none;letter-spacing:0}
+  .catcard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:15px 16px;margin-bottom:4px;display:flex;align-items:center;gap:15px;box-shadow:var(--shadow-sm)}
+  .catcard svg{flex:0 0 auto}
+  .catcard .leg{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+  .catcard .leg-it{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600}
+  .catcard .leg-it .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .catcard .leg-it .n{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+  .catcard .leg-it b{color:var(--ink)}
   .fg .sw{appearance:none;-webkit-appearance:none;width:46px;min-width:46px;height:28px;padding:0;border-radius:20px;background:var(--line-2);position:relative;cursor:pointer;flex:0 0 46px;transition:.2s;border:none}
   .fg .sw:checked{background:var(--primary)}
   .fg .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
@@ -289,7 +302,7 @@
 <div class="sec" id="listSec" style="display:none">Tous mes abonnements</div>
 <div id="listTools" style="display:none">
   <input class="search" id="listSearch" placeholder="Rechercher un abo…" oninput="setQuery(this.value)">
-  <div class="sortchips"><button class="sc on" data-k="prix" onclick="setSort('prix')">Prix</button><button class="sc" data-k="nom" onclick="setSort('nom')">Nom</button><button class="sc" data-k="date" onclick="setSort('date')">Échéance</button></div>
+  <div class="sortchips"><button class="sc on" data-k="prix" onclick="setSort('prix')">Prix</button><button class="sc" data-k="nom" onclick="setSort('nom')">Nom</button><button class="sc" data-k="date" onclick="setSort('date')">Échéance</button><button class="sc" data-k="cat" onclick="setSort('cat')">Catégorie</button></div>
 </div>
 <div id="list"></div>
 
@@ -337,6 +350,7 @@
       <div class="fg"><label>Prochain paiement</label><input id="f-date" type="date"></div>
       <div class="fg"><label>Abonné depuis <span style="font-weight:500;text-transform:none">(historique)</span></label><input id="f-start" type="date"></div>
     </div>
+    <div class="fg"><label>Catégorie</label><select id="f-cat"></select></div>
     <div class="fg"><label style="display:flex;align-items:center;justify-content:space-between;gap:12px;text-transform:none;letter-spacing:0;cursor:pointer;margin:0"><span style="font-size:14.5px;color:var(--ink);font-weight:600">🔔 Me rappeler avant le paiement</span><input type="checkbox" id="f-rappel" class="sw" checked></label></div>
     <button class="save" onclick="saveSub()">Enregistrer</button>
     <button class="del" id="delBtn" style="display:none" onclick="deleteSub()">Supprimer cet abonnement</button>
@@ -435,6 +449,25 @@ function iconInner(name){
   if(!slug) return initials(name);
   return '<img class="lg" src="https://cdn.simpleicons.org/'+slug+'/white" alt="" onerror="this.parentNode.textContent=\''+initials(name)+'\'">';
 }
+/* ===== Catégories ===== */
+var CATS=[
+ {k:'Streaming',c:'#e50914'},{k:'Musique',c:'#1db954'},{k:'IA',c:'#10a37f'},
+ {k:'Jeux',c:'#7c3aed'},{k:'Sport',c:'#f59e0b'},{k:'Cloud',c:'#3b82f6'},
+ {k:'Sécurité',c:'#0ea5e9'},{k:'Productivité',c:'#6366f1'},{k:'Transport',c:'#f97316'},
+ {k:'Téléphonie',c:'#22c55e'},{k:'Autre',c:'#94a3b8'}
+];
+var CATMAP={
+ 'Spotify':'Musique','Apple Music':'Musique','Audible':'Musique',
+ 'Netflix':'Streaming','Disney+':'Streaming','YouTube Premium':'Streaming','Apple TV+':'Streaming','Amazon Prime':'Streaming','DAZN':'Streaming','Crunchyroll':'Streaming','Apple One':'Streaming',
+ 'ChatGPT Plus':'IA','Claude':'IA',
+ 'PlayStation Plus':'Jeux','Xbox Game Pass':'Jeux','Nintendo Online':'Jeux',
+ 'iCloud+':'Cloud','Microsoft 365':'Productivité','Adobe Creative Cloud':'Productivité','Notion':'Productivité',
+ 'NordVPN':'Sécurité',
+ 'Activ Fitness':'Sport','Basefit':'Sport','Non Stop Gym':'Sport','Salle de sport':'Sport',
+ 'TPG':'Transport','Forfait mobile':'Téléphonie'
+};
+function catOf(s){ return s.cat || CATMAP[s.name] || 'Autre'; }
+function catColor(k){ for(var i=0;i<CATS.length;i++){ if(CATS[i].k===k) return CATS[i].c; } return '#94a3b8'; }
 function chf(n){ return 'CHF '+(Math.round(n*100)/100).toFixed(2); }
 function grp(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2019'); }
 function monthly(s){ return s.cycle==='an' ? s.price/12 : s.price; }
@@ -499,19 +532,46 @@ function render(){
 var listSort='prix', listQuery='';
 function setQuery(v){ listQuery=(v||'').toLowerCase().trim(); renderList(); }
 function setSort(k){ listSort=k; document.querySelectorAll('#listTools .sc').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-k')===k); }); renderList(); }
+function rowHTML(s){
+  var due=''; var nd=nextDate(s); if(nd){ var n=daysUntil(nd); due=' · <span class="due'+(n>=0&&n<=7?' soon':'')+'">'+whenTxt(n)+'</span>'; }
+  return '<div class="row" onclick="openEdit(\''+s.id+'\')"><div class="ico" style="background:'+s.color+'">'+iconInner(s.name)+'</div>'
+    +'<div class="info"><div class="nm">'+esc(s.name)+'</div><div class="meta">'+(s.plan?esc(s.plan)+' · ':'')+cycleTxt(s)+due+'</div></div>'
+    +'<div class="amt"><b>'+chf(s.price)+'</b><span>'+(s.cycle==='an'?'≈ '+chf(monthly(s))+'/mois':s.cycle==='perso'?(persoActive(s)?'/mois · '+(s.nm||1)+'×':'terminé'):'/mois')+'</span></div></div>';
+}
+function donutHTML(cats){
+  var total=cats.reduce(function(a,c){return a+c.tot;},0); if(total<=0) return '';
+  var nz=cats.filter(function(c){return c.tot>0;});
+  var size=104, cx=size/2, cy=size/2, r=size/2-4, rin=r*0.6, a0=-Math.PI/2, segs='';
+  if(nz.length===1){ segs='<circle cx="'+cx+'" cy="'+cy+'" r="'+((r+rin)/2).toFixed(1)+'" fill="none" stroke="'+nz[0].color+'" stroke-width="'+(r-rin).toFixed(1)+'"/>'; }
+  else nz.forEach(function(c){ var ang=c.tot/total*2*Math.PI, a1=a0+ang, lg=ang>Math.PI?1:0;
+    var x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0), x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+    var xi1=cx+rin*Math.cos(a1), yi1=cy+rin*Math.sin(a1), xi0=cx+rin*Math.cos(a0), yi0=cy+rin*Math.sin(a0);
+    segs+='<path d="M'+x0.toFixed(2)+' '+y0.toFixed(2)+' A'+r+' '+r+' 0 '+lg+' 1 '+x1.toFixed(2)+' '+y1.toFixed(2)+' L'+xi1.toFixed(2)+' '+yi1.toFixed(2)+' A'+rin+' '+rin+' 0 '+lg+' 0 '+xi0.toFixed(2)+' '+yi0.toFixed(2)+' Z" fill="'+c.color+'"/>';
+    a0=a1; });
+  var ink=cssv('--ink')||'#111', mut=cssv('--muted')||'#888';
+  var leg=cats.map(function(c){ return '<div class="leg-it"><span class="dot" style="background:'+c.color+'"></span><span class="n">'+c.k+'</span><b>'+Math.round(c.tot/total*100)+'%</b></div>'; }).join('');
+  return '<div class="catcard"><svg viewBox="0 0 '+size+' '+size+'" width="104" height="104">'+segs+'<text x="'+cx+'" y="'+(cy-1)+'" text-anchor="middle" font-size="13" fill="'+ink+'" font-weight="800">'+grp(total)+'</text><text x="'+cx+'" y="'+(cy+10)+'" text-anchor="middle" font-size="7.5" fill="'+mut+'" font-weight="700">CHF/mois</text></svg><div class="leg">'+leg+'</div></div>';
+}
 function renderList(){
   var q=listQuery;
   var arr=SUBS.filter(function(s){ return !q || s.name.toLowerCase().indexOf(q)>=0 || (s.plan||'').toLowerCase().indexOf(q)>=0; });
+  var el=document.getElementById('list');
+  if(!arr.length){ el.innerHTML='<div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;text-align:center;color:var(--muted);font-size:14px">Aucun abo ne correspond à « '+esc(q)+' ».</div>'; return; }
+  if(listSort==='cat'){
+    var groups={}; arr.forEach(function(s){ var k=catOf(s); (groups[k]=groups[k]||[]).push(s); });
+    var cats=Object.keys(groups).map(function(k){ return {k:k,subs:groups[k],tot:groups[k].reduce(function(a,s){return a+monthlyNow(s);},0),color:catColor(k)}; }).sort(function(a,b){return b.tot-a.tot;});
+    el.innerHTML = donutHTML(cats) + cats.map(function(c){
+      return '<div class="cathd"><span class="dot" style="background:'+c.color+'"></span>'+c.k+'<span class="tot">'+chf(c.tot)+'/mois</span></div>'
+        + c.subs.sort(function(a,b){return monthlyNow(b)-monthlyNow(a);}).map(rowHTML).join('');
+    }).join('');
+    return;
+  }
   arr.sort(function(a,b){
     if(listSort==='nom') return a.name.localeCompare(b.name,'fr');
     if(listSort==='date'){ var da=nextDate(a), db=nextDate(b); if(!da&&!db) return 0; if(!da) return 1; if(!db) return -1; return da-db; }
     return monthlyNow(b)-monthlyNow(a);
   });
-  document.getElementById('list').innerHTML = arr.length ? arr.map(function(s){
-    return '<div class="row" onclick="openEdit(\''+s.id+'\')"><div class="ico" style="background:'+s.color+'">'+iconInner(s.name)+'</div>'
-      +'<div class="info"><div class="nm">'+esc(s.name)+'</div><div class="meta">'+(s.plan?esc(s.plan)+' · ':'')+cycleTxt(s)+'</div></div>'
-      +'<div class="amt"><b>'+chf(s.price)+'</b><span>'+(s.cycle==='an'?'≈ '+chf(monthly(s))+'/mois':s.cycle==='perso'?(persoActive(s)?'/mois · '+(s.nm||1)+'×':'terminé'):'/mois')+'</span></div></div>';
-  }).join('') : '<div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;text-align:center;color:var(--muted);font-size:14px">Aucun abo ne correspond à « '+esc(q)+' ».</div>';
+  el.innerHTML = arr.map(rowHTML).join('');
 }
 function esc(t){ return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -624,7 +684,7 @@ function openEdit(id){
   var s=SUBS.find(function(x){return x.id===id;}); if(!s) return;
   var c=CATALOG.find(function(x){return x.name===s.name;});
   draft={ name:s.name, color:s.color, plans:(c?c.plans:[]), plan:s.plan||'', price:s.price, cycle:s.cycle };
-  editId=id; draft._date=s.date; draft._start=s.start; draft._nm=s.nm; draft._rappel=s.rappel;
+  editId=id; draft._date=s.date; draft._start=s.start; draft._nm=s.nm; draft._rappel=s.rappel; draft._cat=s.cat;
   fillForm(); open_('ovForm');
 }
 function fillForm(){
@@ -637,6 +697,8 @@ function fillForm(){
   document.getElementById('f-start').value=draft._start||todayISO();
   document.getElementById('f-nmonths').value=draft._nm||3;
   document.getElementById('f-rappel').checked = draft._rappel!==false;
+  var curCat=draft._cat||CATMAP[draft.name]||'Autre';
+  document.getElementById('f-cat').innerHTML = CATS.map(function(c){ return '<option value="'+c.k+'"'+(c.k===curCat?' selected':'')+'>'+c.k+'</option>'; }).join('');
   setCyc(draft.cycle);
   // plans
   var pw=document.getElementById('planWrap'), ps=document.getElementById('plans');
@@ -670,7 +732,8 @@ function saveSub(){
   var rappel=document.getElementById('f-rappel').checked;
   if(!name){ alert('Donne un nom à ton abonnement.'); return; }
   if(isNaN(price)||price<0){ alert('Mets un prix valide.'); return; }
-  var data={ name:name, color:draft.color||'#6366f1', plan:draft.plan||'', price:price, cycle:draft.cycle, date:date, start:start, nm:nm, rappel:rappel };
+  var cat=document.getElementById('f-cat').value||'Autre';
+  var data={ name:name, color:draft.color||'#6366f1', plan:draft.plan||'', price:price, cycle:draft.cycle, date:date, start:start, nm:nm, rappel:rappel, cat:cat };
   if(editId){ var s=SUBS.find(function(x){return x.id===editId;}); Object.assign(s,data); }
   else { data.id=uid(); SUBS.push(data); }
   save(); render(); if(view==='chart')renderChart(); close_('ovForm');
