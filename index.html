@@ -310,7 +310,10 @@
       <div class="fg"><label>Prix <span style="font-weight:500;text-transform:none">(modifiable)</span></label><div class="price-in"><span class="cur">CHF</span><input id="f-price" type="number" inputmode="decimal" step="0.05" placeholder="0.00"></div></div>
       <div class="fg"><label>Cycle</label><div class="cyc"><button id="cyc-mois" class="on" onclick="setCyc('mois')">par mois</button><button id="cyc-an" onclick="setCyc('an')">par an</button></div></div>
     </div>
-    <div class="fg"><label>Prochain paiement</label><input id="f-date" type="date"></div>
+    <div class="fg2">
+      <div class="fg"><label>Prochain paiement</label><input id="f-date" type="date"></div>
+      <div class="fg"><label>Abonné depuis <span style="font-weight:500;text-transform:none">(historique)</span></label><input id="f-start" type="date"></div>
+    </div>
     <button class="save" onclick="saveSub()">Enregistrer</button>
     <button class="del" id="delBtn" style="display:none" onclick="deleteSub()">Supprimer cet abonnement</button>
   </div>
@@ -362,21 +365,28 @@ var CATALOG=[
 
 /* ===== Demo (in-memory only, via #demo — n'écrit jamais dans localStorage) ===== */
 var DEMO=[
- {id:'d1',name:'Spotify',color:'#1DB954',plan:'Famille',price:26.95,cycle:'mois',date:'2026-06-21'},
- {id:'d2',name:'Netflix',color:'#E50914',plan:'Standard',price:22.90,cycle:'mois',date:'2026-06-23'},
- {id:'d3',name:'Activ Fitness',color:'#E2001A',plan:'Standard',price:54.00,cycle:'mois',date:'2026-07-05'},
- {id:'d4',name:'ChatGPT Plus',color:'#10A37F',plan:'Plus',price:18.00,cycle:'mois',date:'2026-06-28'},
- {id:'d5',name:'iCloud+',color:'#3693F3',plan:'200 Go',price:3.00,cycle:'mois',date:'2026-07-02'},
- {id:'d6',name:'Amazon Prime',color:'#00A8E1',plan:'Annuel',price:90.00,cycle:'an',date:'2026-09-12'},
- {id:'d7',name:'Disney+',color:'#1a3fa0',plan:'Standard',price:16.90,cycle:'mois',date:'2026-07-19'}
+ {id:'d1',name:'Spotify',color:'#1DB954',plan:'Famille',price:26.95,cycle:'mois',date:'2026-06-21',start:'2024-11-01'},
+ {id:'d2',name:'Netflix',color:'#E50914',plan:'Standard',price:22.90,cycle:'mois',date:'2026-06-23',start:'2024-08-01'},
+ {id:'d3',name:'Activ Fitness',color:'#E2001A',plan:'Standard',price:54.00,cycle:'mois',date:'2026-07-05',start:'2025-09-01'},
+ {id:'d4',name:'ChatGPT Plus',color:'#10A37F',plan:'Plus',price:18.00,cycle:'mois',date:'2026-06-28',start:'2025-02-01'},
+ {id:'d5',name:'iCloud+',color:'#3693F3',plan:'200 Go',price:3.00,cycle:'mois',date:'2026-07-02',start:'2023-05-01'},
+ {id:'d6',name:'Amazon Prime',color:'#00A8E1',plan:'Annuel',price:90.00,cycle:'an',date:'2026-09-12',start:'2024-09-12'},
+ {id:'d7',name:'Disney+',color:'#1a3fa0',plan:'Standard',price:16.90,cycle:'mois',date:'2026-07-19',start:'2026-01-01'}
+];
+/* abos supprimés (journal) pour la démo — leur passé compte encore */
+var DEMO_HIST=[
+ {name:'Audible',color:'#FF9900',monthly:12.95,start:'2024-03-01',end:'2025-08-01'}
 ];
 
 /* ===== State ===== */
-var SUBS=load(), draft=null, editId=null;
+var SUBS=load(), HIST=loadHist(), draft=null, editId=null;
 var view='list', chartMonths=24, excluded={};
-if(location.hash==='#demo'){ SUBS=DEMO.map(function(s){return Object.assign({},s);}); }
+if(location.hash==='#demo'){ SUBS=DEMO.map(function(s){return Object.assign({},s);}); HIST=DEMO_HIST.slice(); }
 function load(){ try{return JSON.parse(localStorage.getItem('mesabos')||'[]');}catch(e){return [];} }
+function loadHist(){ try{return JSON.parse(localStorage.getItem('mesabos_hist')||'[]');}catch(e){return [];} }
 function save(){ if(location.hash==='#demo') return; localStorage.setItem('mesabos', JSON.stringify(SUBS)); }
+function saveHist(){ if(location.hash==='#demo') return; localStorage.setItem('mesabos_hist', JSON.stringify(HIST)); }
+function monthsFromNow(dstr){ if(!dstr) return 0; var d=new Date(dstr+'T00:00:00'); if(isNaN(d)) return 0; var n=new Date(); n.setHours(0,0,0,0); return (d-n)/(30.4375*86400000); }
 function uid(){ return 's'+Math.random().toString(36).slice(2,9); }
 function initials(n){ return (n||'?').replace(/[^A-Za-zÀ-ÿ0-9]/g,' ').trim().slice(0,1).toUpperCase()||'?'; }
 /* logos de marque (Simple Icons CDN, en blanc sur le badge coloré). Slug absent ou 404 -> initiale en repli. */
@@ -510,7 +520,7 @@ function openEdit(id){
   var s=SUBS.find(function(x){return x.id===id;}); if(!s) return;
   var c=CATALOG.find(function(x){return x.name===s.name;});
   draft={ name:s.name, color:s.color, plans:(c?c.plans:[]), plan:s.plan||'', price:s.price, cycle:s.cycle };
-  editId=id; draft._date=s.date;
+  editId=id; draft._date=s.date; draft._start=s.start;
   fillForm(); open_('ovForm');
 }
 function fillForm(){
@@ -520,6 +530,7 @@ function fillForm(){
   document.getElementById('f-name').value=draft.name;
   document.getElementById('f-price').value=draft.price;
   document.getElementById('f-date').value=draft._date||todayISO();
+  document.getElementById('f-start').value=draft._start||todayISO();
   setCyc(draft.cycle);
   // plans
   var pw=document.getElementById('planWrap'), ps=document.getElementById('plans');
@@ -546,9 +557,10 @@ function saveSub(){
   var name=document.getElementById('f-name').value.trim();
   var price=parseFloat(document.getElementById('f-price').value.replace(',','.'));
   var date=document.getElementById('f-date').value||todayISO();
+  var start=document.getElementById('f-start').value||todayISO();
   if(!name){ alert('Donne un nom à ton abonnement.'); return; }
   if(isNaN(price)||price<0){ alert('Mets un prix valide.'); return; }
-  var data={ name:name, color:draft.color||'#6366f1', plan:draft.plan||'', price:price, cycle:draft.cycle, date:date };
+  var data={ name:name, color:draft.color||'#6366f1', plan:draft.plan||'', price:price, cycle:draft.cycle, date:date, start:start };
   if(editId){ var s=SUBS.find(function(x){return x.id===editId;}); Object.assign(s,data); }
   else { data.id=uid(); SUBS.push(data); }
   save(); render(); if(view==='chart')renderChart(); close_('ovForm');
@@ -556,6 +568,8 @@ function saveSub(){
 function deleteSub(){
   if(!editId) return;
   if(!confirm('Supprimer cet abonnement ?')) return;
+  var s=SUBS.find(function(x){return x.id===editId;});
+  if(s && s.start && monthsFromNow(s.start)<0){ HIST.push({name:s.name,color:s.color,monthly:monthly(s),start:s.start,end:todayISO()}); saveHist(); }
   SUBS=SUBS.filter(function(x){return x.id!==editId;});
   save(); render(); if(view==='chart')renderChart(); close_('ovForm');
 }
@@ -580,28 +594,37 @@ function setAll(on){ excluded={}; if(!on) SUBS.forEach(function(s){ excluded[s.i
 function toggleExclude(id){ if(excluded[id]) delete excluded[id]; else excluded[id]=true; renderChart(); }
 function renderChart(){
   document.getElementById('periods').innerHTML=PERIODS.map(function(p){ return '<button class="per'+(p.m===chartMonths?' on':'')+'" onclick="setPeriod('+p.m+')">'+p.l+'</button>'; }).join('');
-  var incl=SUBS.filter(function(s){ return !excluded[s.id]; });
-  var mTot=incl.reduce(function(a,s){ return a+monthly(s); },0);
-  var months=chartMonths, total=mTot*months, yrs=months/12;
-  document.getElementById('chTotal').textContent='CHF '+grp(total);
-  document.getElementById('chPeriodTxt').textContent='sur '+yrs+' '+(yrs<=1?'an':'ans');
-  document.getElementById('chPer').textContent=chf(mTot)+' / mois';
-  // couleurs theme-aware
-  var cLine=cssv('--chart-line')||'#5b54e8', cGrid=cssv('--chart-grid')||'#eef0f7', cAxis=cssv('--chart-axis')||'#9aa3b5', cArea=cssv('--chart-area')||'#6366f1', cDotS=cssv('--surface')||'#fff';
-  // SVG (aire cumulée)
-  var W=340,H=180,pl=48,pr=14,pt=18,pb=26, x0=pl,x1=W-pr,y0=pt,y1=H-pb, max=total||1;
-  function X(i){ return x0+(i/months)*(x1-x0); }
+  var period=chartMonths, yrs=period/12;
+  // PASSÉ factuel : abos actuels (fin = maintenant) + abos supprimés (journal HIST)
+  var recs=[];
+  SUBS.forEach(function(s){ recs.push({m:monthly(s), st:Math.min(0,monthsFromNow(s.start)), en:0}); });
+  HIST.forEach(function(h){ recs.push({m:h.monthly, st:Math.min(0,monthsFromNow(h.start)), en:Math.min(0,monthsFromNow(h.end))}); });
+  var mChecked=SUBS.filter(function(s){ return !excluded[s.id]; }).reduce(function(a,s){ return a+monthly(s); },0);
+  var originM=0; recs.forEach(function(r){ if(r.st<originM) originM=r.st; }); originM=Math.floor(originM);
+  function pastAt(m){ var v=0; recs.forEach(function(r){ var act=Math.min(m,r.en)-r.st; if(act>0) v+=r.m*act; }); return v; }
+  var pastTotal=pastAt(0);
+  function valAt(m){ return m<=0 ? pastAt(m) : pastTotal+mChecked*m; }
+  var series=[]; for(var mm=originM;mm<=period;mm++) series.push([mm, valAt(mm)]);
+  var endTotal=valAt(period), max=Math.max(endTotal,1);
+  document.getElementById('chTotal').textContent='CHF '+grp(endTotal);
+  document.getElementById('chPeriodTxt').textContent='d’ici '+yrs+' '+(yrs<=1?'an':'ans');
+  document.getElementById('chPer').innerHTML = pastTotal>0 ? 'déjà <b>CHF '+grp(pastTotal)+'</b> dépensé · puis '+chf(mChecked)+' / mois' : 'à <b>'+chf(mChecked)+' / mois</b> · coche/décoche pour voir l’impact';
+  var cLine=cssv('--chart-line')||'#5b54e8', cGrid=cssv('--chart-grid')||'#eef0f7', cAxis=cssv('--chart-axis')||'#9aa3b5', cArea=cssv('--chart-area')||'#6366f1', cDotS=cssv('--surface')||'#fff', cMut=cssv('--muted')||'#888';
+  var W=340,H=180,pl=48,pr=14,pt=18,pb=26, x0=pl,x1=W-pr,y0=pt,y1=H-pb, span=period-originM;
+  function X(m){ return x0+((m-originM)/span)*(x1-x0); }
   function Y(v){ return y1-(v/max)*(y1-y0); }
-  var pts=[]; for(var i=0;i<=months;i++) pts.push([X(i),Y(mTot*i)]);
-  var line=pts.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' ');
-  var area='M'+x0.toFixed(1)+' '+y1+' '+pts.map(function(p){ return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' ')+' L'+x1.toFixed(1)+' '+y1+' Z';
+  var pastPts=series.filter(function(p){return p[0]<=0;}).map(function(p){return [X(p[0]),Y(p[1])];});
+  var futPts=series.filter(function(p){return p[0]>=0;}).map(function(p){return [X(p[0]),Y(p[1])];});
+  function pathOf(pp){ return pp.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' '); }
+  var nowX=X(0), end=futPts[futPts.length-1];
+  var futArea='M'+nowX.toFixed(1)+' '+y1+' '+futPts.map(function(p){return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ')+' L'+x1.toFixed(1)+' '+y1+' Z';
+  var pastArea = pastPts.length>1 ? 'M'+x0.toFixed(1)+' '+y1+' '+pastPts.map(function(p){return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ')+' L'+nowX.toFixed(1)+' '+y1+' Z' : '';
   var grid='';
   [0,0.5,1].forEach(function(f){ var yy=y1-f*(y1-y0); grid+='<line x1="'+x0+'" y1="'+yy.toFixed(1)+'" x2="'+x1+'" y2="'+yy.toFixed(1)+'" stroke="'+cGrid+'"/><text x="'+(x0-8)+'" y="'+(yy+3).toFixed(1)+'" text-anchor="end" font-size="8.5" font-weight="600" fill="'+cAxis+'">'+grp(max*f)+'</text>'; });
-  var xlab='';
-  for(var yr=1;yr<=yrs;yr++){ var xx=X(yr*12); xlab+='<line x1="'+xx.toFixed(1)+'" y1="'+y0+'" x2="'+xx.toFixed(1)+'" y2="'+y1+'" stroke="'+cGrid+'"/><text x="'+xx.toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="8.5" font-weight="600" fill="'+cAxis+'">'+yr+(yr>1?' ans':' an')+'</text>'; }
-  var end=pts[pts.length-1];
-  document.getElementById('svgWrap').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" width="100%"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+cArea+'" stop-opacity="0.34"/><stop offset="1" stop-color="'+cArea+'" stop-opacity="0.02"/></linearGradient></defs>'+grid+xlab+'<path d="'+area+'" fill="url(#ag)"/><path d="'+line+'" fill="none" stroke="'+cLine+'" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+end[0].toFixed(1)+'" cy="'+end[1].toFixed(1)+'" r="5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2.5"/><line id="chCross" x1="0" y1="'+y0+'" x2="0" y2="'+y1+'" stroke="'+cLine+'" stroke-width="1.2" stroke-dasharray="3 3" opacity="0"/><circle id="chDot" r="4.5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2" opacity="0"/></svg>';
-  chartState={mTot:mTot,months:months,x0:x0,x1:x1,y0:y0,y1:y1,max:max,W:W,H:H};
+  var nowMark = originM<0 ? '<line x1="'+nowX.toFixed(1)+'" y1="'+y0+'" x2="'+nowX.toFixed(1)+'" y2="'+y1+'" stroke="'+cAxis+'" stroke-width="1" stroke-dasharray="2 3" opacity="0.65"/><text x="'+nowX.toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="8" font-weight="700" fill="'+cAxis+'">auj.</text>' : '';
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+cArea+'" stop-opacity="0.34"/><stop offset="1" stop-color="'+cArea+'" stop-opacity="0.02"/></linearGradient></defs>'+grid+(pastArea?'<path d="'+pastArea+'" fill="'+cMut+'" fill-opacity="0.10"/>':'')+'<path d="'+futArea+'" fill="url(#ag)"/>'+(pastPts.length>1?'<path d="'+pathOf(pastPts)+'" fill="none" stroke="'+cMut+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.8"/>':'')+'<path d="'+pathOf(futPts)+'" fill="none" stroke="'+cLine+'" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>'+nowMark+'<circle cx="'+end[0].toFixed(1)+'" cy="'+end[1].toFixed(1)+'" r="5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2.5"/><line id="chCross" x1="0" y1="'+y0+'" x2="0" y2="'+y1+'" stroke="'+cLine+'" stroke-width="1.2" stroke-dasharray="3 3" opacity="0"/><circle id="chDot" r="4.5" fill="'+cLine+'" stroke="'+cDotS+'" stroke-width="2" opacity="0"/></svg>';
+  document.getElementById('svgWrap').innerHTML=svg;
+  chartState={originM:originM,span:span,x0:x0,x1:x1,y0:y0,y1:y1,max:max,W:W,H:H,series:series};
   // cases à cocher
   document.getElementById('chSubs').innerHTML = SUBS.length ? SUBS.map(function(s){
     var on=!excluded[s.id];
@@ -620,14 +643,16 @@ function chartMove(e){
   var rect=svg.getBoundingClientRect(), cs=chartState;
   var sx=(px-rect.left)/rect.width*cs.W;
   var f=(sx-cs.x0)/(cs.x1-cs.x0); f=Math.max(0,Math.min(1,f));
-  var mi=Math.round(f*cs.months), val=cs.mTot*mi;
-  var X=cs.x0+(mi/cs.months)*(cs.x1-cs.x0), Y=cs.y1-(val/cs.max)*(cs.y1-cs.y0);
+  var mi=Math.round(cs.originM+f*cs.span);
+  var idx=mi-cs.originM; if(idx<0)idx=0; if(idx>=cs.series.length)idx=cs.series.length-1;
+  var val=cs.series[idx][1];
+  var X=cs.x0+((mi-cs.originM)/cs.span)*(cs.x1-cs.x0), Y=cs.y1-(val/cs.max)*(cs.y1-cs.y0);
   var ln=document.getElementById('chCross'),dt=document.getElementById('chDot'),tip=document.getElementById('chTip');
   if(ln){ ln.setAttribute('x1',X.toFixed(1)); ln.setAttribute('x2',X.toFixed(1)); ln.style.opacity='1'; }
   if(dt){ dt.setAttribute('cx',X.toFixed(1)); dt.setAttribute('cy',Y.toFixed(1)); dt.style.opacity='1'; }
   if(tip){
     var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+mi);
-    var dtxt=mi===0?'maintenant':(mi+' mois · '+d.toLocaleDateString('fr-CH',{month:'short',year:'2-digit'}));
+    var dtxt=mi===0?"aujourd'hui":d.toLocaleDateString('fr-CH',{month:'short',year:'2-digit'});
     tip.innerHTML='<b>'+chf(val)+'</b><span>'+dtxt+'</span>';
     var card=document.querySelector('.chartcard'), cr=card.getBoundingClientRect();
     var lx=rect.left+(X/cs.W)*rect.width-cr.left; lx=Math.max(42,Math.min(cr.width-42,lx));
