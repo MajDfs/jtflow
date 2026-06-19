@@ -268,6 +268,7 @@
     <svg viewBox="0 0 24 24" fill="none"><path d="M4 17 L9.5 12.5 L13 14.2 L20 7" stroke="#9b97ff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="7" r="2.4" fill="#9b97ff"/></svg>
   </span>
   <div class="brand"><b>JT<span class="flow">flow</span></b></div>
+  <button class="theme-btn" id="ctryBtn" onclick="toggleCountry()" aria-label="Pays" style="font-size:19px;line-height:1">🇨🇭</button>
   <button class="theme-btn" onclick="openCalendar()" aria-label="Calendrier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg></button>
   <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Changer de thème">
     <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
@@ -338,7 +339,7 @@
     <div class="sh-h"><div style="display:flex;align-items:center;gap:10px"><button class="bk" id="formBack" style="display:none" onclick="backToCatalog()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><h2 id="formTitle">Nouvel abonnement</h2></div><button class="x" onclick="close_('ovForm')">✕</button></div>
     <div class="fg"><label>Nom</label><input id="f-name" placeholder="ex: Spotify"></div>
     <div class="fg" id="planWrap" style="display:none"><label>Forfait</label><div class="plans" id="plans"></div></div>
-    <div class="fg"><label>Prix <span style="font-weight:500;text-transform:none">(modifiable)</span></label><div class="price-in"><span class="cur">CHF</span><input id="f-price" type="number" inputmode="decimal" step="0.05" placeholder="0.00"></div></div>
+    <div class="fg"><label>Prix <span style="font-weight:500;text-transform:none">(modifiable)</span></label><div class="price-in"><span class="cur" id="curLabel">CHF</span><input id="f-price" type="number" inputmode="decimal" step="0.05" placeholder="0.00"></div></div>
     <div class="fg"><label>Cycle</label>
       <div class="cyc"><button id="cyc-mois" class="on" onclick="setCyc('mois')">par mois</button><button id="cyc-an" onclick="setCyc('an')">par an</button><button id="cyc-perso" onclick="setCyc('perso')">perso</button></div>
       <div id="nmWrap" style="display:none;flex-direction:column;gap:7px;margin-top:10px">
@@ -372,34 +373,35 @@
 </div>
 
 <script>
-/* ===== Catalogue (prix CHF Suisse vérifiés — modifiables) ===== */
+/* ===== Catalogue — prix CH (CHF) et FR (EUR) vérifiés juin 2026, modifiables. only:'CH'/'FR' = service régional ===== */
 var CATALOG=[
- {name:'Spotify',color:'#1DB954',plans:[{l:'Individuel',p:15.95},{l:'Duo',p:21.95},{l:'Famille',p:26.95},{l:'Étudiant',p:8.95}]},
- {name:'Netflix',color:'#E50914',plans:[{l:'Standard avec pub',p:14.90},{l:'Standard',p:22.90},{l:'Premium',p:29.90}]},
- {name:'Disney+',color:'#1a3fa0',plans:[{l:'Standard avec pub',p:9.90},{l:'Standard',p:16.90},{l:'Premium',p:23.40}]},
- {name:'YouTube Premium',color:'#FF0000',plans:[{l:'Individuel',p:17.90},{l:'Famille',p:33.90}]},
- {name:'Apple Music',color:'#FA243C',plans:[{l:'Individuel',p:11.50},{l:'Famille',p:16.50},{l:'Étudiant',p:7.50}]},
- {name:'iCloud+',color:'#3693F3',plans:[{l:'50 Go',p:1.00},{l:'200 Go',p:3.00},{l:'2 To',p:10.00},{l:'6 To',p:30.00},{l:'12 To',p:60.00}]},
- {name:'Apple One',color:'#333333',plans:[{l:'Individuel',p:19.95},{l:'Famille',p:25.95},{l:'Premier',p:34.95}]},
- {name:'Apple TV+',color:'#000000',plans:[{l:'Mensuel',p:9.00}]},
- {name:'Amazon Prime',color:'#00A8E1',plans:[{l:'Prime Video',p:9.99}]},
- {name:'DAZN',color:'#0b0b14',plans:[{l:'Super Sports (annuel)',p:24.90},{l:'Unlimited (annuel)',p:34.90},{l:'Unlimited (mensuel)',p:49.90}]},
- {name:'Activ Fitness',color:'#E2001A',plans:[{l:'Standard',p:54.00},{l:'Réduit (AVS/AI/étud.)',p:46.00}]},
- {name:'Basefit',color:'#ff6a00',plans:[{l:'Abonnement',p:39.90}]},
- {name:'Non Stop Gym',color:'#d81e2c',plans:[{l:'Abonnement',p:49.00}]},
+ {name:'Spotify',color:'#1DB954',plans:[{l:'Individuel',ch:15.95,fr:11.99},{l:'Duo',ch:21.95,fr:16.99},{l:'Famille',ch:26.95,fr:20.99},{l:'Étudiant',ch:8.95,fr:6.99}]},
+ {name:'Netflix',color:'#E50914',plans:[{l:'Standard avec pub',ch:14.90,fr:7.99},{l:'Standard',ch:22.90,fr:14.99},{l:'Premium',ch:29.90,fr:21.99}]},
+ {name:'Disney+',color:'#1a3fa0',plans:[{l:'Standard avec pub',ch:9.90,fr:5.99},{l:'Standard',ch:16.90,fr:9.99},{l:'Premium',ch:23.40,fr:13.99}]},
+ {name:'YouTube Premium',color:'#FF0000',plans:[{l:'Individuel',ch:17.90,fr:12.99},{l:'Famille',ch:33.90,fr:23.99}]},
+ {name:'Apple Music',color:'#FA243C',plans:[{l:'Individuel',ch:11.50,fr:10.99},{l:'Famille',ch:16.50,fr:16.99},{l:'Étudiant',ch:7.50,fr:5.99}]},
+ {name:'iCloud+',color:'#3693F3',plans:[{l:'50 Go',ch:1.00,fr:0.99},{l:'200 Go',ch:3.00,fr:2.99},{l:'2 To',ch:10.00,fr:9.99},{l:'6 To',ch:30.00,fr:29.99},{l:'12 To',ch:60.00,fr:59.99}]},
+ {name:'Apple One',color:'#333333',plans:[{l:'Individuel',ch:19.95,fr:19.95},{l:'Famille',ch:25.95,fr:25.95},{l:'Premier',ch:34.95,fr:34.95}]},
+ {name:'Apple TV+',color:'#000000',plans:[{l:'Mensuel',ch:10.90,fr:9.99}]},
+ {name:'Amazon Prime',color:'#00A8E1',plans:[{l:'Mensuel',ch:9.99,fr:6.99}]},
+ {name:'DAZN',color:'#0b0b14',plans:[{l:'Super Sports / DAZN (annuel)',ch:24.90,fr:14.99},{l:'Unlimited / +Ligue 1 (annuel)',ch:34.90,fr:16.99},{l:'Unlimited / +Ligue 1 (mensuel)',ch:49.90,fr:21.99}]},
+ {name:'Activ Fitness',color:'#E2001A',only:'CH',plans:[{l:'Standard',ch:54.00},{l:'Réduit (AVS/AI/étud.)',ch:46.00}]},
+ {name:'Basefit',color:'#ff6a00',only:'CH',plans:[{l:'Abonnement',ch:39.90}]},
+ {name:'Non Stop Gym',color:'#d81e2c',only:'CH',plans:[{l:'Abonnement',ch:49.00}]},
  {name:'Salle de sport',color:'#0ea5e9',plans:[]},
- {name:'ChatGPT Plus',color:'#10A37F',plans:[{l:'Plus (≈ facturé $20)',p:18.00}]},
- {name:'Claude',color:'#cc785c',plans:[{l:'Pro (≈ facturé $20)',p:18.00},{l:'Max 5×',p:90.00},{l:'Max 20×',p:180.00}]},
- {name:'Microsoft 365',color:'#D83B01',plans:[{l:'Personnel',p:7.00},{l:'Famille',p:10.00}]},
- {name:'Adobe Creative Cloud',color:'#FF0000',plans:[{l:'Photo',p:12.00},{l:'Toutes les apps',p:65.00}]},
- {name:'PlayStation Plus',color:'#0070D1',plans:[{l:'Essential',p:7.90},{l:'Extra',p:13.40},{l:'Premium',p:16.40}]},
- {name:'Xbox Game Pass',color:'#107C10',plans:[{l:'Core',p:7.99},{l:'Ultimate',p:16.99}]},
- {name:'Nintendo Online',color:'#E60012',plans:[{l:'Individuel (annuel)',p:1.66}]},
- {name:'Audible',color:'#FF9900',plans:[{l:'Abonnement',p:12.95}]},
- {name:'Crunchyroll',color:'#F47521',plans:[{l:'Fan',p:6.50},{l:'Mega Fan',p:9.50}]},
- {name:'NordVPN',color:'#4687ff',plans:[{l:'Mensuel',p:13.00}]},
- {name:'Notion',color:'#000000',plans:[{l:'Plus',p:10.00}]},
- {name:'TPG',color:'#f4a300',plans:[]},
+ {name:'ChatGPT Plus',color:'#10A37F',plans:[{l:'Plus',ch:18.00,fr:23.00}]},
+ {name:'Claude',color:'#cc785c',plans:[{l:'Pro',ch:18.00,fr:22.00},{l:'Max 5×',ch:90.00,fr:110.00},{l:'Max 20×',ch:180.00,fr:220.00}]},
+ {name:'Microsoft 365',color:'#D83B01',plans:[{l:'Personnel',ch:9.95,fr:10.00},{l:'Famille',ch:13.95,fr:13.00}]},
+ {name:'Adobe Creative Cloud',color:'#FF0000',plans:[{l:'Formule Photo',ch:12.95,fr:11.99},{l:'Toutes les apps',ch:76.75,fr:78.65}]},
+ {name:'PlayStation Plus',color:'#0070D1',plans:[{l:'Essential',ch:9.90,fr:9.99},{l:'Extra',ch:15.50,fr:15.99},{l:'Premium',ch:18.90,fr:18.99}]},
+ {name:'Xbox Game Pass',color:'#107C10',plans:[{l:'Essential',ch:14.99,fr:9.99},{l:'Ultimate',ch:22.99,fr:20.99},{l:'PC Game Pass',ch:13.99,fr:12.99}]},
+ {name:'Nintendo Online',color:'#E60012',plans:[{l:'Individuel (annuel)',ch:19.90,fr:19.99},{l:'Famille (annuel)',ch:34.90,fr:34.99}]},
+ {name:'Audible',color:'#FF9900',plans:[{l:'Abonnement',ch:9.95,fr:9.95}]},
+ {name:'Crunchyroll',color:'#F47521',plans:[{l:'Fan',ch:7.99,fr:6.99},{l:'Mega Fan',ch:9.99,fr:8.99}]},
+ {name:'NordVPN',color:'#4687ff',plans:[{l:'Mensuel',ch:12.99,fr:11.99}]},
+ {name:'Notion',color:'#000000',plans:[{l:'Plus',ch:10.00,fr:10.00}]},
+ {name:'TPG',color:'#f4a300',only:'CH',plans:[]},
+ {name:'Navigo',color:'#1c2e7a',only:'FR',plans:[{l:'Mensuel toutes zones',fr:90.80},{l:'Forfait annuel (par mois)',fr:83.20},{l:'Imagine R étudiant (par mois)',fr:32.80}]},
  {name:'Forfait mobile',color:'#22a06b',plans:[]},
  {name:'Autre',color:'#8b8f9e',plans:[]}
 ];
@@ -468,8 +470,20 @@ var CATMAP={
 };
 function catOf(s){ return s.cat || CATMAP[s.name] || 'Autre'; }
 function catColor(k){ for(var i=0;i<CATS.length;i++){ if(CATS[i].k===k) return CATS[i].c; } return '#94a3b8'; }
-function chf(n){ return 'CHF '+(Math.round(n*100)/100).toFixed(2); }
-function grp(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2019'); }
+/* ===== Pays / devise (CH = CHF \u00b7 FR = \u20ac) ===== */
+var country=(function(){ try{return localStorage.getItem('jt_country')||'CH';}catch(e){return 'CH';} })();
+function curKey(){ return country==='FR'?'fr':'ch'; }
+function curCode(){ return country==='FR'?'\u20ac':'CHF'; }
+function priceOf(p){ var v=p[curKey()]; if(v==null) v=(p.ch!=null?p.ch:p.fr); return v||0; }
+function fmt2(n){ var v=(Math.round(n*100)/100).toFixed(2); return country==='FR'?v.replace('.',','):v; }
+function chf(n){ return country==='FR' ? fmt2(n)+' \u20ac' : 'CHF '+fmt2(n); }
+function grp(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, country==='FR'?'\u202f':'\u2019'); }
+function gmoney(n){ return country==='FR' ? grp(n)+' \u20ac' : 'CHF '+grp(n); }
+function setCountry(c){ country=c; try{localStorage.setItem('jt_country',c);}catch(e){}
+  var b=document.getElementById('ctryBtn'); if(b) b.textContent=country==='FR'?'\ud83c\uddeb\ud83c\uddf7':'\ud83c\udde8\ud83c\udded';
+  var cl=document.getElementById('curLabel'); if(cl) cl.textContent=curCode();
+  render(); if(view==='chart') renderChart(); if(document.getElementById('ovCat').classList.contains('on')) renderCatalog(); }
+function toggleCountry(){ setCountry(country==='FR'?'CH':'FR'); }
 function monthly(s){ return s.cycle==='an' ? s.price/12 : s.price; }
 function persoEnd(s){ return monthsFromNow(s.start||s.date) + (s.nm||1); } // mois-depuis-maintenant de fin de l'échelonnement
 function persoActive(s){ return s.cycle!=='perso' || persoEnd(s) > 0; }     // false si échelonnement terminé
@@ -510,8 +524,8 @@ function syncThemeColor(){
 function render(){
   var totM=SUBS.reduce(function(a,s){return a+monthlyNow(s);},0);
   var ip=Math.floor(totM), dec=totM.toFixed(2).split('.')[1];
-  document.getElementById('totM').innerHTML='CHF '+grp(ip)+'<small>.'+dec+'</small>';
-  document.getElementById('totY').textContent='CHF '+grp(totM*12);
+  document.getElementById('totM').innerHTML = country==='FR' ? grp(ip)+'<small>,'+dec+'</small> €' : 'CHF '+grp(ip)+'<small>.'+dec+'</small>';
+  document.getElementById('totY').textContent=gmoney(totM*12);
   document.getElementById('cnt').textContent=SUBS.length;
 
   document.getElementById('empty').style.display = SUBS.length?'none':'block';
@@ -550,7 +564,7 @@ function donutHTML(cats){
     a0=a1; });
   var ink=cssv('--ink')||'#111', mut=cssv('--muted')||'#888';
   var leg=cats.map(function(c){ return '<div class="leg-it"><span class="dot" style="background:'+c.color+'"></span><span class="n">'+c.k+'</span><b>'+Math.round(c.tot/total*100)+'%</b></div>'; }).join('');
-  return '<div class="catcard"><svg viewBox="0 0 '+size+' '+size+'" width="104" height="104">'+segs+'<text x="'+cx+'" y="'+(cy-1)+'" text-anchor="middle" font-size="13" fill="'+ink+'" font-weight="800">'+grp(total)+'</text><text x="'+cx+'" y="'+(cy+10)+'" text-anchor="middle" font-size="7.5" fill="'+mut+'" font-weight="700">CHF/mois</text></svg><div class="leg">'+leg+'</div></div>';
+  return '<div class="catcard"><svg viewBox="0 0 '+size+' '+size+'" width="104" height="104">'+segs+'<text x="'+cx+'" y="'+(cy-1)+'" text-anchor="middle" font-size="13" fill="'+ink+'" font-weight="800">'+grp(total)+'</text><text x="'+cx+'" y="'+(cy+10)+'" text-anchor="middle" font-size="7.5" fill="'+mut+'" font-weight="700">'+curCode()+'/mois</text></svg><div class="leg">'+leg+'</div></div>';
 }
 function renderList(){
   var q=listQuery;
@@ -665,7 +679,7 @@ function renderCalendar(){
 }
 function renderCatalog(){
   var q=document.getElementById('catSearch').value.toLowerCase().trim();
-  var items=CATALOG.filter(function(c){return !q || c.name.toLowerCase().indexOf(q)>=0;});
+  var items=CATALOG.filter(function(c){return (!c.only || c.only===country) && (!q || c.name.toLowerCase().indexOf(q)>=0);});
   document.getElementById('catGrid').innerHTML=items.map(function(c,i){
     var idx=CATALOG.indexOf(c);
     return '<button class="cat-it" onclick="pickService('+idx+')"><div class="ico" style="background:'+c.color+'">'+iconInner(c.name)+'</div><div class="cn">'+esc(c.name)+'</div></button>';
@@ -676,7 +690,7 @@ function renderCatalog(){
 function pickService(i){
   var c=CATALOG[i];
   draft={ name:(c.name==='Autre'?'':c.name), color:c.color, plans:c.plans, plan:'', price:'', cycle:'mois' };
-  if(c.plans && c.plans.length){ draft.plan=c.plans[0].l; draft.price=c.plans[0].p; }
+  if(c.plans && c.plans.length){ draft.plan=c.plans[0].l; draft.price=priceOf(c.plans[0]); }
   editId=null;
   close_('ovCat'); fillForm(); open_('ovForm');
 }
@@ -697,6 +711,7 @@ function fillForm(){
   document.getElementById('f-start').value=draft._start||todayISO();
   document.getElementById('f-nmonths').value=draft._nm||3;
   document.getElementById('f-rappel').checked = draft._rappel!==false;
+  document.getElementById('curLabel').textContent=curCode();
   var curCat=draft._cat||CATMAP[draft.name]||'Autre';
   document.getElementById('f-cat').innerHTML = CATS.map(function(c){ return '<option value="'+c.k+'"'+(c.k===curCat?' selected':'')+'>'+c.k+'</option>'; }).join('');
   setCyc(draft.cycle);
@@ -705,7 +720,7 @@ function fillForm(){
   if(draft.plans && draft.plans.length){
     pw.style.display='block';
     ps.innerHTML=draft.plans.map(function(p){
-      return '<button class="plan'+(p.l===draft.plan?' on':'')+'" onclick="pickPlan(\''+p.l.replace(/'/g,"\\'")+'\','+p.p+')">'+esc(p.l)+'<small>'+chf(p.p)+'</small></button>';
+      return '<button class="plan'+(p.l===draft.plan?' on':'')+'" onclick="pickPlan(\''+p.l.replace(/'/g,"\\'")+'\','+priceOf(p)+')">'+esc(p.l)+'<small>'+chf(priceOf(p))+'</small></button>';
     }).join('');
   } else { pw.style.display='none'; ps.innerHTML=''; }
 }
@@ -785,9 +800,9 @@ function renderChart(){
   for(var mm=originM;mm<=period;mm++){ blueSeries.push([mm,blueAt(mm)]); greenSeries.push([mm,greenAt(mm)]); }
   var endAll=blueAt(period), endMod=greenAt(period), savings=endAll-endMod, hasGap=savings>0.5;
   var max=Math.max(endAll,1), cGreen='#16c784';
-  document.getElementById('chTotal').textContent='CHF '+grp(endAll);
+  document.getElementById('chTotal').textContent=gmoney(endAll);
   document.getElementById('chPeriodTxt').textContent='d’ici '+yrs+' '+(yrs<=1?'an':'ans');
-  document.getElementById('chPer').innerHTML = (pastTotal>0 ? 'déjà <b>CHF '+grp(pastTotal)+'</b> dépensé' : 'à <b>'+chf(mAll)+'/mois</b>') + ' · ' + (hasGap ? '<b style="color:'+cGreen+'">−CHF '+grp(savings)+'</b> économisé en '+yrs+(yrs<=1?' an':' ans') : 'décoche un abo → tes économies en <span style="color:'+cGreen+';font-weight:800">vert</span>');
+  document.getElementById('chPer').innerHTML = (pastTotal>0 ? 'déjà <b>'+gmoney(pastTotal)+'</b> dépensé' : 'à <b>'+chf(mAll)+'/mois</b>') + ' · ' + (hasGap ? '<b style="color:'+cGreen+'">−'+gmoney(savings)+'</b> économisé en '+yrs+(yrs<=1?' an':' ans') : 'décoche un abo → tes économies en <span style="color:'+cGreen+';font-weight:800">vert</span>');
   var cLine=cssv('--chart-line')||'#5b54e8', cGrid=cssv('--chart-grid')||'#eef0f7', cAxis=cssv('--chart-axis')||'#9aa3b5', cArea=cssv('--chart-area')||'#6366f1', cDotS=cssv('--surface')||'#fff', cMut=cssv('--muted')||'#888';
   var W=340,H=180,pl=48,pr=14,pt=18,pb=26, x0=pl,x1=W-pr,y0=pt,y1=H-pb, span=period-originM;
   function X(m){ return x0+((m-originM)/span)*(x1-x0); }
@@ -845,6 +860,7 @@ function chartMove(e){
 (function(){ var sw=document.getElementById('svgWrap'); if(sw){ sw.addEventListener('mousemove',chartMove); sw.addEventListener('mouseleave',chartLeave); sw.addEventListener('touchstart',chartMove,{passive:false}); sw.addEventListener('touchmove',chartMove,{passive:false}); sw.addEventListener('touchend',chartLeave); } })();
 
 syncThemeColor();
+(function(){ var b=document.getElementById('ctryBtn'); if(b) b.textContent=country==='FR'?'🇫🇷':'🇨🇭'; var cl=document.getElementById('curLabel'); if(cl) cl.textContent=curCode(); })();
 render();
 </script>
 </body>
