@@ -219,13 +219,20 @@
   .cmTitle{font-weight:800;font-size:16.5px;text-transform:capitalize;letter-spacing:-.02em}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:14px}
   .cal-wd{text-align:center;font-size:10.5px;font-weight:700;color:var(--faint);padding:2px 0}
-  .cal-d{height:46px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;font-weight:600}
-  .cal-d.empty{background:none;border:none}
+  .cal-d{height:46px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;font-weight:600;cursor:pointer}
+  .cal-d:active{transform:scale(.94)}
+  .cal-d.empty{background:none;border:none;pointer-events:none}
   .cal-d.has{background:var(--primary-soft);border-color:transparent}
   .cal-d.today{border-color:var(--primary);color:var(--primary-ink);font-weight:800}
+  .cal-d.sel{background:var(--primary);border-color:transparent;color:#fff;font-weight:800}
   .cal-dots{display:flex;gap:2px;height:5px}
   .cal-dots i{width:5px;height:5px;border-radius:50%}
-  .cal-pay{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid var(--line)}
+  .cal-back{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:5px 11px;font-size:11.5px;font-weight:700;color:var(--primary-ink);text-transform:none;letter-spacing:0;cursor:pointer}
+  .cal-daytot{display:flex;justify-content:space-between;align-items:center;padding:13px 2px 2px;font-size:13.5px;color:var(--muted);font-weight:700}
+  .cal-daytot b{color:var(--ink);font-size:16px;font-weight:800}
+  .cal-pay{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+  .cal-pay:active{opacity:.6}
+  .cal-pay .nm small{display:block;font-weight:500;font-size:12px;color:var(--muted);margin-top:1px;letter-spacing:0}
   .cal-pay:last-child{border-bottom:none}
   .cal-pay .dd{width:30px;font-weight:800;font-size:15px;text-align:center;flex:0 0 auto;color:var(--primary-ink)}
   .cal-pay .ico{width:32px;height:32px;border-radius:9px;font-size:13px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
@@ -331,7 +338,7 @@
     <div class="sh-h"><h2>Calendrier</h2><button class="x" onclick="close_('ovCal')">✕</button></div>
     <div class="cal-nav"><button onclick="calMove(-1)" aria-label="Mois précédent">‹</button><span class="cmTitle" id="calMonth"></span><button onclick="calMove(1)" aria-label="Mois suivant">›</button></div>
     <div class="cal-grid" id="calGrid"></div>
-    <div class="sec" style="margin:6px 2px 4px">Paiements du mois</div>
+    <div class="sec" id="calListTitle" style="margin:6px 2px 4px">Paiements du mois</div>
     <div id="calList"></div>
   </div>
 </div>
@@ -487,9 +494,10 @@ function openCatalog(){ document.getElementById('catSearch').value=''; renderCat
 function backToCatalog(){ close_('ovForm'); openCatalog(); }
 
 /* ===== Calendrier ===== */
-var calRef=null;
-function openCalendar(){ calRef=new Date(); calRef.setDate(1); renderCalendar(); open_('ovCal'); }
-function calMove(d){ calRef.setMonth(calRef.getMonth()+d); renderCalendar(); }
+var calRef=null, calSel=null;
+function openCalendar(){ calRef=new Date(); calRef.setDate(1); calSel=null; renderCalendar(); open_('ovCal'); }
+function calMove(d){ calRef.setMonth(calRef.getMonth()+d); calSel=null; renderCalendar(); }
+function calPick(n){ calSel = (calSel===n ? null : n); renderCalendar(); }
 function calDueDay(s,Y,M){
   var anchor=(s.cycle==='perso')?(s.start||s.date):s.date;
   var d=new Date(anchor+'T00:00:00'); if(isNaN(d)) return null;
@@ -512,15 +520,34 @@ function renderCalendar(){
   for(var n=1;n<=dim;n++){
     var subs=byDay[n]||[];
     var dots=subs.slice(0,4).map(function(s){return '<i style="background:'+s.color+'"></i>';}).join('');
-    var cls='cal-d'+(subs.length?' has':'')+(thisM&&n===td?' today':'');
-    html+='<div class="'+cls+'">'+n+'<div class="cal-dots">'+dots+'</div></div>';
+    var cls='cal-d'+(subs.length?' has':'')+(thisM&&n===td?' today':'')+(n===calSel?' sel':'');
+    html+='<div class="'+cls+'" onclick="calPick('+n+')">'+n+'<div class="cal-dots">'+dots+'</div></div>';
   }
   document.getElementById('calGrid').innerHTML=html;
-  var pays=[]; Object.keys(byDay).forEach(function(k){ byDay[k].forEach(function(s){ pays.push({d:+k,s:s}); }); });
-  pays.sort(function(a,b){return a.d-b.d;});
-  document.getElementById('calList').innerHTML = pays.length ? pays.map(function(p){
-    return '<div class="cal-pay"><div class="dd">'+p.d+'</div><div class="ico" style="background:'+p.s.color+'">'+iconInner(p.s.name)+'</div><div class="nm">'+esc(p.s.name)+'</div><div class="pr">'+chf(p.s.price)+'</div></div>';
-  }).join('') : '<div class="cal-empty">Aucun paiement ce mois-ci.</div>';
+  var titleEl=document.getElementById('calListTitle'), listEl=document.getElementById('calList');
+  if(calSel){
+    // détail d'un jour sélectionné
+    var dsel=new Date(Y,M,calSel), lab=dsel.toLocaleDateString('fr-CH',{weekday:'long',day:'numeric',month:'long'});
+    lab=lab.charAt(0).toUpperCase()+lab.slice(1);
+    titleEl.innerHTML='<span style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)">'+lab+'</span><button class="cal-back" onclick="calPick('+calSel+')">‹ tout le mois</button>';
+    var ds=byDay[calSel]||[];
+    if(ds.length){
+      var tot=ds.reduce(function(a,s){return a+s.price;},0);
+      listEl.innerHTML = ds.map(function(s){
+        return '<div class="cal-pay" onclick="openEdit(\''+s.id+'\')"><div class="dd">'+calSel+'</div><div class="ico" style="background:'+s.color+'">'+iconInner(s.name)+'</div><div class="nm">'+esc(s.name)+'<small>'+(s.plan?esc(s.plan)+' · ':'')+cycleTxt(s)+'</small></div><div class="pr">'+chf(s.price)+'</div></div>';
+      }).join('') + '<div class="cal-daytot">Total du jour<b>'+chf(tot)+'</b></div>';
+    } else {
+      listEl.innerHTML='<div class="cal-empty">Aucun paiement ce jour-là 🎉</div>';
+    }
+  } else {
+    // liste de tout le mois
+    titleEl.textContent='Paiements du mois';
+    var pays=[]; Object.keys(byDay).forEach(function(k){ byDay[k].forEach(function(s){ pays.push({d:+k,s:s}); }); });
+    pays.sort(function(a,b){return a.d-b.d;});
+    listEl.innerHTML = pays.length ? pays.map(function(p){
+      return '<div class="cal-pay" onclick="calPick('+p.d+')"><div class="dd">'+p.d+'</div><div class="ico" style="background:'+p.s.color+'">'+iconInner(p.s.name)+'</div><div class="nm">'+esc(p.s.name)+'</div><div class="pr">'+chf(p.s.price)+'</div></div>';
+    }).join('') : '<div class="cal-empty">Aucun paiement ce mois-ci.</div>';
+  }
 }
 function renderCatalog(){
   var q=document.getElementById('catSearch').value.toLowerCase().trim();
